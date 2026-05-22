@@ -1,0 +1,23 @@
+# Static analysis config. See https://dart.dev/tools/analysis
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+  language:
+    strict-casts: true
+    strict-raw-types: true
+  errors:
+    # Generated code and intentional patterns
+    invalid_annotation_target: ignore
+
+linter:
+  rules:
+    prefer_single_quotes: true
+    require_trailing_commas: true
+    avoid_print: true
+    prefer_const_constructors: true
+    prefer_final_locals: true
+    unawaited_futures: true
+    directives_ordering: true

@@ -1,0 +1,37 @@
+{
+  "name": "hacktracker-scripts",
+  "version": "1.0.0",
+  "description": "Database introspection and CI utility scripts for HackTracker (slowpitch softball stats tracker)",
+  "scripts": {
+    "fetch-schemas": "node scripts/database/fetch-schemas.js",
+    "fetch-functions": "node scripts/database/fetch-functions.js",
+    "fetch-indexes": "node scripts/database/fetch-indexes.js",
+    "fetch-rls-policies": "node scripts/database/fetch-rls-policies.js",
+    "fetch-views": "node scripts/database/fetch-views.js",
+    "fetch-triggers": "node scripts/database/fetch-triggers.js",
+    "fetch-foreign-keys": "node scripts/database/fetch-foreign-keys.js",
+    "fetch-types": "node scripts/database/fetch-types.js",
+    "fetch-all": "node scripts/database/fetch-all.js",
+    "build:ios": "cd app && flutter build ios --release",
+    "build:android": "cd app && flutter build apk --release",
+    "deploy:ios": "cd app && flutter build ios --release && flutter install --release",
+    "deploy:android": "cd app && flutter build apk --release && flutter install --release",
+    "deploy": "cd app && flutter run --profile",
+    "test": "cd app && flutter test",
+    "test:coverage": "cd app && flutter test --coverage --concurrency=1 || true",
+    "validate:rpc-grants": "node scripts/ci/validate-rpc-grants.js",
+    "check:all": "bash scripts/ci/check-all.sh",
+    "check:database-source-of-truth": "bash scripts/ci/check-database-source-of-truth.sh",
+    "check:riverpod-no-legacy": "bash scripts/ci/check-riverpod-no-legacy.sh",
+    "check:feature-imports": "bash scripts/ci/check-feature-imports.sh",
+    "check:no-handrolled-copywith": "bash scripts/ci/check-no-handrolled-copywith.sh"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.80.0",
+    "dotenv": "^16.3.1",
+    "pg": "^8.11.3"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

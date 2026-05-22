@@ -1,0 +1,9 @@
+# Dead-public-API allowlist — `relative/path:identifier`, one per line.
+# Grandfathers public declarations with no in-repo caller. Prefer DELETING
+# the method over adding an entry; every entry should explain why it's here.
+
+# AppThemeExtension implements Flutter's ThemeExtension<T> contract: lerp() is
+# invoked by the framework during theme animation, and the per-token helper
+# lerps (AppColors/AppTextTokens) are only called from there — so the liveness
+# scanner sees no in-repo caller. Required by the framework; cannot delete.
+app/lib/core/theme/app_theme_extension.dart:lerp

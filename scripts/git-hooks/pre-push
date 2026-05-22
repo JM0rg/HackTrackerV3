@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# pre-push — guards `git push` against pushing broken code.
+#
+# Runs the full local-CI gate (formatting, analyzer, structural checks).
+# Skip in an emergency: `git push --no-verify`.
+#
+# To enable this hook, run once per clone:
+#   git config core.hooksPath scripts/git-hooks
+#
+# (Hooks under scripts/git-hooks/ are tracked in the repo. Without the
+# `core.hooksPath` config, git only looks in `.git/hooks/` which is local.)
+
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+if [ ! -x scripts/ci/check-all.sh ]; then
+  echo "pre-push: scripts/ci/check-all.sh not found or not executable" >&2
+  echo "pre-push: skipping (not a fatal error — fix the script setup)" >&2
+  exit 0
+fi
+
+echo "pre-push: running local CI gate (bypass with --no-verify)..."
+echo ""
+
+if ! bash scripts/ci/check-all.sh; then
+  echo "" >&2
+  echo "pre-push: BLOCKED — fix the failures above, or push with --no-verify." >&2
+  exit 1
+fi
