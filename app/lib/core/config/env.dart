@@ -7,11 +7,6 @@ abstract final class Env {
     'SUPABASE_ANON_KEY',
   );
 
-  /// Web OAuth client ID used by `google_sign_in` for ID-token auth on mobile.
-  static const String googleServerClientId = String.fromEnvironment(
-    'GOOGLE_SERVER_CLIENT_ID',
-  );
-
   static bool get hasSupabaseConfig =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 }

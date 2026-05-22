@@ -5,30 +5,19 @@ import '../../../core/di/supabase_providers.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/error/result.dart';
 import '../../../core/services/app_logger.dart';
-import '../services/apple_auth_service.dart';
-import '../services/google_auth_service.dart';
 
-/// The auth boundary. Converts provider/network exceptions into typed
-/// [AuthFailure]s so controllers never see raw throws.
+/// The auth boundary. Passwordless email one-time code only. Converts
+/// network/auth exceptions into typed [AuthFailure]s so controllers never see
+/// raw throws.
 class AuthRepository {
-  AuthRepository(this._client)
-    : _apple = AppleAuthService(_client),
-      _google = GoogleAuthService(_client);
+  AuthRepository(this._client);
 
   final SupabaseClient _client;
-  final AppleAuthService _apple;
-  final GoogleAuthService _google;
 
   /// Emits on every sign-in / sign-out / token refresh.
   Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
 
   bool get hasSession => _client.auth.currentSession != null;
-
-  Future<Result<void>> signInWithApple() =>
-      _guard(_apple.signIn, 'Apple sign-in failed');
-
-  Future<Result<void>> signInWithGoogle() =>
-      _guard(_google.signIn, 'Google sign-in failed');
 
   /// Sends a one-time code / magic link to [email].
   Future<Result<void>> sendEmailOtp(String email) => _guard(

@@ -12,7 +12,7 @@ access are planned for later phases — this repo is the offline-first foundatio
 - **Drift** (local SQLite) — on-device source of truth; the app works fully offline.
 - **Supabase** (Postgres) — backend; the app syncs to it in the background.
 - **Riverpod** — state management. **go_router** — navigation. **freezed** — immutable models.
-- **Auth** — passwordless: Sign in with Apple, Google, and email magic-link/OTP.
+- **Auth** — passwordless: email magic-link / one-time code (Supabase Auth).
 
 ## Architecture
 
@@ -31,8 +31,7 @@ flutter pub get
 dart run build_runner build --delete-conflicting-outputs   # codegen (drift/freezed/riverpod)
 flutter run \
   --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY \
-  --dart-define=GOOGLE_SERVER_CLIENT_ID=YOUR_WEB_OAUTH_CLIENT_ID
+  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY
 ```
 Secrets are passed via `--dart-define`, never committed.
 

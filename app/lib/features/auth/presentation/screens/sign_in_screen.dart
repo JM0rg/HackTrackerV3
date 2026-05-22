@@ -39,7 +39,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(authControllerProvider);
-    final controller = ref.read(authControllerProvider.notifier);
     final spacing = context.themeSpacing;
     final busy = state.isSaving;
 
@@ -74,35 +73,15 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     ),
                   ),
                   SizedBox(height: spacing.xl),
-                  AppButton(
-                    label: 'Continue with Apple',
-                    icon: Icons.apple,
-                    onPressed: busy ? null : controller.signInWithApple,
-                  ),
-                  SizedBox(height: spacing.sm),
-                  AppButton(
-                    label: 'Continue with Google',
-                    icon: Icons.g_mobiledata,
-                    variant: AppButtonVariant.secondary,
-                    onPressed: busy ? null : controller.signInWithGoogle,
-                  ),
-                  SizedBox(height: spacing.lg),
-                  Text(
-                    'or use email',
-                    textAlign: TextAlign.center,
-                    style: context.text.caption,
-                  ),
-                  SizedBox(height: spacing.sm),
                   AppTextField(
                     label: 'Email',
                     controller: _email,
                     hint: 'you@example.com',
                     keyboardType: TextInputType.emailAddress,
                   ),
-                  SizedBox(height: spacing.sm),
+                  SizedBox(height: spacing.md),
                   AppButton(
                     label: 'Email me a code',
-                    variant: AppButtonVariant.secondary,
                     isBusy: busy,
                     onPressed: busy ? null : _sendCode,
                   ),

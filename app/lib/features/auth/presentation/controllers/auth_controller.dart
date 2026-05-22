@@ -38,10 +38,6 @@ class AuthController extends Notifier<AuthFormState>
 
   AuthRepository get _repo => ref.read(authRepositoryProvider);
 
-  Future<void> signInWithApple() => guard(_repo.signInWithApple);
-
-  Future<void> signInWithGoogle() => guard(_repo.signInWithGoogle);
-
   Future<void> sendCode(String email) async {
     final ok = await guard(() => _repo.sendEmailOtp(email));
     if (ok) state = state.copyWith(codeSent: true, pendingEmail: email);
