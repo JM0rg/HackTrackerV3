@@ -7,7 +7,6 @@ import '../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../features/auth/presentation/screens/otp_verify_screen.dart';
 import '../../features/auth/presentation/screens/sign_in_screen.dart';
 import '../../features/games/presentation/screens/games_list_screen.dart';
-import '../../features/groups/presentation/screens/groups_list_screen.dart';
 import '../../features/onboarding/presentation/controllers/first_team_skip_controller.dart';
 import '../../features/onboarding/presentation/screens/first_team_onboarding_screen.dart';
 import '../../features/onboarding/presentation/screens/welcome_screen.dart';
@@ -116,14 +115,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: Routes.games,
                 builder: (_, _) => const GamesListScreen(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: Routes.groups,
-                builder: (_, _) => const GroupsListScreen(),
               ),
             ],
           ),

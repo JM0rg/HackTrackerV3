@@ -5,16 +5,16 @@ import '../../../../core/di/sync_providers.dart';
 import '../../../../core/widgets/app_scaffold.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/skeleton_loader.dart';
-import '../../../../core/widgets/sync_status_indicator.dart';
 import '../../../teams/data/teams_repository.dart';
-import '../../../teams/presentation/widgets/team_selector.dart';
 import '../../data/groups_repository.dart';
 import '../../domain/group.dart';
 import '../widgets/group_card.dart';
 import 'group_detail_screen.dart';
 import 'group_edit_screen.dart';
 
-/// Groups tab (seasons & tournaments) for the currently selected team.
+/// Seasons & tournaments manager for the current team. Reached from the
+/// Games tab's app-bar action. Not a top-level tab — groups are an
+/// organizational aid for games, not a peer concept.
 class GroupsListScreen extends ConsumerWidget {
   const GroupsListScreen({super.key});
 
@@ -41,13 +41,11 @@ class GroupsListScreen extends ConsumerWidget {
 
     if (teamId == null) {
       return const AppScaffold(
-        titleWidget: TeamSelector(),
+        title: 'Seasons & Tournaments',
         body: EmptyState(
           icon: Icons.emoji_events_outlined,
           title: 'No team selected',
-          message:
-              'Add a team from the dropdown above to create seasons and '
-              'tournaments.',
+          message: 'Switch to a team to manage its seasons and tournaments.',
         ),
       );
     }
@@ -55,8 +53,7 @@ class GroupsListScreen extends ConsumerWidget {
     final groups = ref.watch(groupsForTeamProvider(teamId));
 
     return AppScaffold(
-      titleWidget: const TeamSelector(),
-      actions: const [SyncStatusIndicator()],
+      title: 'Seasons & Tournaments',
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openCreate(context),
         child: const Icon(Icons.add),
@@ -70,8 +67,8 @@ class GroupsListScreen extends ConsumerWidget {
             if (list.isEmpty) {
               return const EmptyState(
                 icon: Icons.emoji_events_outlined,
-                title: 'No groups yet',
-                message: 'Create a season or tournament to group games.',
+                title: 'No seasons or tournaments yet',
+                message: 'Create one to group games for standings and stats.',
               );
             }
             return ListView.separated(
