@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/theme_context_extensions.dart';
-import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_scaffold.dart';
-import '../../../../core/widgets/confirmation_dialog.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/sync_status_indicator.dart';
 import '../../../players/presentation/screens/players_list_screen.dart';
@@ -35,21 +33,6 @@ class TeamScreen extends ConsumerWidget {
         builder: (_) => PlayersListScreen(teamId: team.id, teamName: team.name),
       ),
     );
-  }
-
-  Future<void> _delete(BuildContext context, WidgetRef ref, Team team) async {
-    final confirmed = await ConfirmationDialog.show(
-      context,
-      title: 'Delete ${team.name}?',
-      message:
-          'This removes the team and its roster from this device and the '
-          'cloud. This cannot be undone.',
-      confirmLabel: 'Delete',
-      isDestructive: true,
-    );
-    if (!confirmed) return;
-    await ref.read(teamsRepositoryProvider).softDelete(team.id);
-    // The currentTeam provider auto-shifts to the next team (or null).
   }
 
   @override
@@ -115,12 +98,6 @@ class TeamScreen extends ConsumerWidget {
                 Icon(Icons.chevron_right, color: colors.secondaryText),
               ],
             ),
-          ),
-          SizedBox(height: spacing.xl),
-          AppButton(
-            label: 'Delete team',
-            variant: AppButtonVariant.destructive,
-            onPressed: () => _delete(context, ref, team),
           ),
         ],
       ),

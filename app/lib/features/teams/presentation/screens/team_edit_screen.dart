@@ -5,6 +5,8 @@ import '../../../../core/theme/theme_context_extensions.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_scaffold.dart';
 import '../../../../core/widgets/app_text_field.dart';
+import '../../../../core/widgets/confirmation_dialog.dart';
+import '../../data/teams_repository.dart';
 import '../../domain/team.dart';
 import '../controllers/team_edit_controller.dart';
 
@@ -36,6 +38,22 @@ class _TeamEditScreenState extends ConsumerState<TeamEditScreen> {
         .read(teamEditControllerProvider.notifier)
         .save(id: widget.team?.id, name: _name.text, teamType: _type);
     if (savedId != null && mounted) Navigator.of(context).pop(savedId);
+  }
+
+  Future<void> _delete() async {
+    final team = widget.team!;
+    final confirmed = await ConfirmationDialog.show(
+      context,
+      title: 'Delete ${team.name}?',
+      message:
+          'This removes the team and its roster from this device and the '
+          'cloud. This cannot be undone.',
+      confirmLabel: 'Delete',
+      isDestructive: true,
+    );
+    if (!confirmed) return;
+    await ref.read(teamsRepositoryProvider).softDelete(team.id);
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -86,6 +104,27 @@ class _TeamEditScreenState extends ConsumerState<TeamEditScreen> {
               state.errorMessage!,
               style: context.text.caption.copyWith(
                 color: context.colors.danger,
+              ),
+            ),
+          ],
+          if (isEditing) ...[
+            SizedBox(height: spacing.xl),
+            const Divider(),
+            SizedBox(height: spacing.sm),
+            Center(
+              child: TextButton.icon(
+                onPressed: state.isSaving ? null : _delete,
+                icon: Icon(
+                  Icons.delete_outline,
+                  size: 18,
+                  color: context.colors.danger,
+                ),
+                label: Text(
+                  'Delete team',
+                  style: context.text.label.copyWith(
+                    color: context.colors.danger,
+                  ),
+                ),
               ),
             ),
           ],
