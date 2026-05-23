@@ -25,21 +25,29 @@ class AppColors {
   final Color danger;
   final Color success;
 
-  static const AppColors dark = AppColors(
-    surface: Color(0xFF0A0716),
-    surfaceAlt: Color(0xFF14102A),
-    primary: Color(0xFFDE57FF),
-    onPrimary: Color(0xFF0A0716),
-    text: Color(0xFFF4EFFE),
-    secondaryText: Color(0xFF9F95C2),
-    border: Color(0xFF2A2148),
-    danger: Color(0xFFFF5C7C),
-    success: Color(0xFF57F7FF),
+  static const AppColors light = AppColors(
+    surface: Color(0xFFFFFFFF),
+    surfaceAlt: Color(0xFFF4F6F5),
+    primary: Color(0xFF2E7D32),
+    onPrimary: Color(0xFFFFFFFF),
+    text: Color(0xFF14201A),
+    secondaryText: Color(0xFF5C6B63),
+    border: Color(0xFFDCE3DF),
+    danger: Color(0xFFC62828),
+    success: Color(0xFF2E7D32),
   );
 
-  /// The app is dark-only; [light] aliases [dark] so any code path that asks
-  /// for the light theme still gets the neon palette.
-  static const AppColors light = dark;
+  static const AppColors dark = AppColors(
+    surface: Color(0xFF121714),
+    surfaceAlt: Color(0xFF1B221E),
+    primary: Color(0xFF4CAF50),
+    onPrimary: Color(0xFF08130C),
+    text: Color(0xFFE8EFEA),
+    secondaryText: Color(0xFF9AA8A0),
+    border: Color(0xFF2A332D),
+    danger: Color(0xFFEF5350),
+    success: Color(0xFF66BB6A),
+  );
 
   AppColors lerp(AppColors other, double t) {
     return AppColors(
