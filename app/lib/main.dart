@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -25,6 +27,14 @@ Future<void> main() async {
 
   await Supabase.initialize(url: Env.supabaseUrl, anonKey: Env.supabaseAnonKey);
 
+  // Validate any restored session against the server. If the user was deleted
+  // (or otherwise invalidated) since the last launch, the SDK will sign out
+  // and the router gate redirects to /sign-in. Fire-and-forget so boot isn't
+  // gated on a network round-trip.
+  if (Supabase.instance.client.auth.currentSession != null) {
+    unawaited(_validateSession());
+  }
+
   runApp(
     ProviderScope(
       overrides: [
@@ -45,6 +55,15 @@ Future<void> main() async {
       child: const HackTrackerApp(),
     ),
   );
+}
+
+Future<void> _validateSession() async {
+  try {
+    await Supabase.instance.client.auth.getUser();
+  } on AuthException {
+    // Token is no longer valid (user deleted, password reset elsewhere, etc.).
+    await Supabase.instance.client.auth.signOut();
+  }
 }
 
 /// Shown when the app is launched without Supabase credentials (missing

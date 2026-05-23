@@ -33,4 +33,21 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   int get schemaVersion => 1;
+
+  /// Clears all user-scoped local data and resets the sync cursors. Called on
+  /// sign-out so stale rows from a previous account never bleed into a fresh
+  /// sign-in on the same device. Drift's `.watch()` streams react and the UI
+  /// reactively empties.
+  Future<void> wipeUserData() => transaction(() async {
+    await delete(lineupSlots).go();
+    await delete(lineups).go();
+    await delete(gameGroups).go();
+    await delete(games).go();
+    await delete(groups).go();
+    await delete(players).go();
+    await delete(teamMembers).go();
+    await delete(teams).go();
+    await delete(profiles).go();
+    await delete(syncMeta).go();
+  });
 }
