@@ -27,8 +27,8 @@ class HackTrackerApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'HackTracker',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      theme: AppTheme.dark(),
+      themeMode: ThemeMode.dark,
       routerConfig: ref.watch(appRouterProvider),
     );
   }
