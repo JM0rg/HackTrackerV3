@@ -9,6 +9,16 @@ final supabaseClientProvider = Provider<SupabaseClient>((ref) {
 
 /// Current auth user id (Supabase `auth.uid()`), or null when signed out.
 /// The sync engine stamps this as `owner_id` on locally-created rows.
+///
+/// Subscribes to `onAuthStateChange` and invalidates itself on every event so
+/// the cached id never goes stale — without this, a first-time sign-in leaves
+/// downstream providers (myProfileProvider, the onboarding gate) holding the
+/// pre-sign-in `null` until the next app launch.
 final currentUserIdProvider = Provider<String?>((ref) {
-  return ref.watch(supabaseClientProvider).auth.currentUser?.id;
+  final client = ref.watch(supabaseClientProvider);
+  final subscription = client.auth.onAuthStateChange.listen((_) {
+    ref.invalidateSelf();
+  });
+  ref.onDispose(subscription.cancel);
+  return client.auth.currentUser?.id;
 });
