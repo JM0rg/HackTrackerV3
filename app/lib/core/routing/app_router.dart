@@ -8,6 +8,7 @@ import '../../features/auth/presentation/screens/otp_verify_screen.dart';
 import '../../features/auth/presentation/screens/sign_in_screen.dart';
 import '../../features/games/presentation/screens/games_list_screen.dart';
 import '../../features/groups/presentation/screens/groups_list_screen.dart';
+import '../../features/onboarding/presentation/controllers/first_team_skip_controller.dart';
 import '../../features/onboarding/presentation/screens/first_team_onboarding_screen.dart';
 import '../../features/onboarding/presentation/screens/welcome_screen.dart';
 import '../../features/profile/data/profile_repository.dart';
@@ -33,6 +34,7 @@ final _routerRefreshProvider = Provider<Listenable>((ref) {
   ref.listen(authChangesProvider, (_, _) => notifier._bump());
   ref.listen(myProfileProvider, (_, _) => notifier._bump());
   ref.listen(teamsStreamProvider, (_, _) => notifier._bump());
+  ref.listen(firstTeamSkipProvider, (_, _) => notifier._bump());
   ref.onDispose(notifier.dispose);
   return notifier;
 });
@@ -69,9 +71,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return atWelcome ? null : Routes.welcome;
       }
 
-      // Display name set: ensure at least one team exists.
+      // Display name set: prompt to create the first team unless the user has
+      // explicitly chosen to skip it this session.
       final teams = ref.read(teamsStreamProvider).value;
-      if (teams != null && teams.isEmpty) {
+      final skippedFirstTeam = ref.read(firstTeamSkipProvider);
+      if (teams != null && teams.isEmpty && !skippedFirstTeam) {
         return atWelcomeTeam ? null : Routes.welcomeTeam;
       }
 

@@ -87,4 +87,6 @@ class GameEditController extends Notifier<GameFormState>
 }
 
 final gameEditControllerProvider =
-    NotifierProvider<GameEditController, GameFormState>(GameEditController.new);
+    NotifierProvider.autoDispose<GameEditController, GameFormState>(
+      GameEditController.new,
+    );

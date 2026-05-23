@@ -51,7 +51,6 @@ class _GameEditScreenState extends ConsumerState<GameEditScreen> {
     _notes.dispose();
     _ourScore.dispose();
     _oppScore.dispose();
-    ref.invalidate(gameEditControllerProvider);
     super.dispose();
   }
 

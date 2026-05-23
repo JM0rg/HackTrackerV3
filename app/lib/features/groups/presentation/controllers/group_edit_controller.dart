@@ -82,6 +82,6 @@ class GroupEditController extends Notifier<GroupFormState>
 }
 
 final groupEditControllerProvider =
-    NotifierProvider<GroupEditController, GroupFormState>(
+    NotifierProvider.autoDispose<GroupEditController, GroupFormState>(
       GroupEditController.new,
     );

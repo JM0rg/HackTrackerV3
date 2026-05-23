@@ -48,6 +48,6 @@ class WelcomeController extends Notifier<WelcomeFormState>
 }
 
 final welcomeControllerProvider =
-    NotifierProvider<WelcomeController, WelcomeFormState>(
+    NotifierProvider.autoDispose<WelcomeController, WelcomeFormState>(
       WelcomeController.new,
     );

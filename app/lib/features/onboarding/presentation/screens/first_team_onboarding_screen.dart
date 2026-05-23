@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/routing/routes.dart';
 import '../../../../core/theme/theme_context_extensions.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../teams/domain/team.dart';
 import '../../../teams/presentation/controllers/team_edit_controller.dart';
+import '../controllers/first_team_skip_controller.dart';
 
 /// First-run step 2: create your first team. Shown when the user has a
-/// display name but no teams yet. Reuses [TeamEditController] so the
-/// create path is identical to in-app team creation.
+/// display name but no teams yet. Reuses [TeamEditController] so the create
+/// path is identical to in-app team creation. The "Skip for now" path sets
+/// an in-memory flag the router gate respects, so the user can dismiss the
+/// prompt and proceed to the empty Teams tab.
 class FirstTeamOnboardingScreen extends ConsumerStatefulWidget {
   const FirstTeamOnboardingScreen({super.key});
 
@@ -34,7 +39,6 @@ class _FirstTeamOnboardingScreenState
   void dispose() {
     _name.removeListener(_recheck);
     _name.dispose();
-    ref.invalidate(teamEditControllerProvider);
     super.dispose();
   }
 
@@ -48,6 +52,11 @@ class _FirstTeamOnboardingScreenState
         .read(teamEditControllerProvider.notifier)
         .save(name: _name.text, teamType: _type);
     // Router redirect moves to the Teams tab once teamsStream becomes non-empty.
+  }
+
+  void _skip() {
+    ref.read(firstTeamSkipProvider.notifier).skip();
+    context.go(Routes.teams);
   }
 
   @override
@@ -113,6 +122,16 @@ class _FirstTeamOnboardingScreenState
                     label: 'Create team',
                     isBusy: busy,
                     onPressed: (_hasText && !busy) ? _create : null,
+                  ),
+                  SizedBox(height: spacing.sm),
+                  TextButton(
+                    onPressed: busy ? null : _skip,
+                    child: Text(
+                      'Skip for now',
+                      style: context.text.label.copyWith(
+                        color: context.colors.secondaryText,
+                      ),
+                    ),
                   ),
                   if (state.errorMessage != null) ...[
                     SizedBox(height: spacing.md),

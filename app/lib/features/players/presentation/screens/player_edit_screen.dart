@@ -48,7 +48,6 @@ class _PlayerEditScreenState extends ConsumerState<PlayerEditScreen> {
     _number.dispose();
     _phone.dispose();
     _email.dispose();
-    ref.invalidate(playerEditControllerProvider);
     super.dispose();
   }
 

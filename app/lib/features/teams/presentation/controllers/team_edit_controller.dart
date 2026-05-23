@@ -77,4 +77,6 @@ class TeamEditController extends Notifier<TeamFormState>
 }
 
 final teamEditControllerProvider =
-    NotifierProvider<TeamEditController, TeamFormState>(TeamEditController.new);
+    NotifierProvider.autoDispose<TeamEditController, TeamFormState>(
+      TeamEditController.new,
+    );

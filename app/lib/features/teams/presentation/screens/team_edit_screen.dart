@@ -28,7 +28,6 @@ class _TeamEditScreenState extends ConsumerState<TeamEditScreen> {
   @override
   void dispose() {
     _name.dispose();
-    ref.invalidate(teamEditControllerProvider);
     super.dispose();
   }
 

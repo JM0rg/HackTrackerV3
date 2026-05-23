@@ -41,7 +41,6 @@ class _GroupEditScreenState extends ConsumerState<GroupEditScreen> {
     _name.dispose();
     _league.dispose();
     _location.dispose();
-    ref.invalidate(groupEditControllerProvider);
     super.dispose();
   }
 
