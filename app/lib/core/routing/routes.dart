@@ -12,5 +12,6 @@ abstract final class Routes {
 
   static const teams = '/';
   static const games = '/games';
+  static const stats = '/stats';
   static const profile = '/profile';
 }

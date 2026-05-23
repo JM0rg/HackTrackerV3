@@ -12,6 +12,7 @@ import '../../features/onboarding/presentation/screens/first_team_onboarding_scr
 import '../../features/onboarding/presentation/screens/welcome_screen.dart';
 import '../../features/profile/data/profile_repository.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/stats/presentation/screens/stats_screen.dart';
 import '../../features/teams/data/teams_repository.dart';
 import '../../features/teams/presentation/screens/team_screen.dart';
 import '../../shell/app_shell.dart';
@@ -115,6 +116,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: Routes.games,
                 builder: (_, _) => const GamesListScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.stats,
+                builder: (_, _) => const StatsScreen(),
               ),
             ],
           ),
