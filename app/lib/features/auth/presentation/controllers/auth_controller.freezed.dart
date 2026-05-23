@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$AuthFormState {
 
- bool get isSaving; String? get errorMessage; bool get codeSent; String? get pendingEmail;
+ bool get isSaving; String? get errorMessage; bool get codeSent; String? get pendingEmail; DateTime? get lastSentAt;
 /// Create a copy of AuthFormState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -25,16 +25,16 @@ $AuthFormStateCopyWith<AuthFormState> get copyWith => _$AuthFormStateCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AuthFormState&&(identical(other.isSaving, isSaving) || other.isSaving == isSaving)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&(identical(other.codeSent, codeSent) || other.codeSent == codeSent)&&(identical(other.pendingEmail, pendingEmail) || other.pendingEmail == pendingEmail));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AuthFormState&&(identical(other.isSaving, isSaving) || other.isSaving == isSaving)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&(identical(other.codeSent, codeSent) || other.codeSent == codeSent)&&(identical(other.pendingEmail, pendingEmail) || other.pendingEmail == pendingEmail)&&(identical(other.lastSentAt, lastSentAt) || other.lastSentAt == lastSentAt));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,isSaving,errorMessage,codeSent,pendingEmail);
+int get hashCode => Object.hash(runtimeType,isSaving,errorMessage,codeSent,pendingEmail,lastSentAt);
 
 @override
 String toString() {
-  return 'AuthFormState(isSaving: $isSaving, errorMessage: $errorMessage, codeSent: $codeSent, pendingEmail: $pendingEmail)';
+  return 'AuthFormState(isSaving: $isSaving, errorMessage: $errorMessage, codeSent: $codeSent, pendingEmail: $pendingEmail, lastSentAt: $lastSentAt)';
 }
 
 
@@ -45,7 +45,7 @@ abstract mixin class $AuthFormStateCopyWith<$Res>  {
   factory $AuthFormStateCopyWith(AuthFormState value, $Res Function(AuthFormState) _then) = _$AuthFormStateCopyWithImpl;
 @useResult
 $Res call({
- bool isSaving, String? errorMessage, bool codeSent, String? pendingEmail
+ bool isSaving, String? errorMessage, bool codeSent, String? pendingEmail, DateTime? lastSentAt
 });
 
 
@@ -62,13 +62,14 @@ class _$AuthFormStateCopyWithImpl<$Res>
 
 /// Create a copy of AuthFormState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? isSaving = null,Object? errorMessage = freezed,Object? codeSent = null,Object? pendingEmail = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? isSaving = null,Object? errorMessage = freezed,Object? codeSent = null,Object? pendingEmail = freezed,Object? lastSentAt = freezed,}) {
   return _then(_self.copyWith(
 isSaving: null == isSaving ? _self.isSaving : isSaving // ignore: cast_nullable_to_non_nullable
 as bool,errorMessage: freezed == errorMessage ? _self.errorMessage : errorMessage // ignore: cast_nullable_to_non_nullable
 as String?,codeSent: null == codeSent ? _self.codeSent : codeSent // ignore: cast_nullable_to_non_nullable
 as bool,pendingEmail: freezed == pendingEmail ? _self.pendingEmail : pendingEmail // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,lastSentAt: freezed == lastSentAt ? _self.lastSentAt : lastSentAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,
   ));
 }
 
@@ -153,10 +154,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool isSaving,  String? errorMessage,  bool codeSent,  String? pendingEmail)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool isSaving,  String? errorMessage,  bool codeSent,  String? pendingEmail,  DateTime? lastSentAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _AuthFormState() when $default != null:
-return $default(_that.isSaving,_that.errorMessage,_that.codeSent,_that.pendingEmail);case _:
+return $default(_that.isSaving,_that.errorMessage,_that.codeSent,_that.pendingEmail,_that.lastSentAt);case _:
   return orElse();
 
 }
@@ -174,10 +175,10 @@ return $default(_that.isSaving,_that.errorMessage,_that.codeSent,_that.pendingEm
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool isSaving,  String? errorMessage,  bool codeSent,  String? pendingEmail)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool isSaving,  String? errorMessage,  bool codeSent,  String? pendingEmail,  DateTime? lastSentAt)  $default,) {final _that = this;
 switch (_that) {
 case _AuthFormState():
-return $default(_that.isSaving,_that.errorMessage,_that.codeSent,_that.pendingEmail);case _:
+return $default(_that.isSaving,_that.errorMessage,_that.codeSent,_that.pendingEmail,_that.lastSentAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -194,10 +195,10 @@ return $default(_that.isSaving,_that.errorMessage,_that.codeSent,_that.pendingEm
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool isSaving,  String? errorMessage,  bool codeSent,  String? pendingEmail)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool isSaving,  String? errorMessage,  bool codeSent,  String? pendingEmail,  DateTime? lastSentAt)?  $default,) {final _that = this;
 switch (_that) {
 case _AuthFormState() when $default != null:
-return $default(_that.isSaving,_that.errorMessage,_that.codeSent,_that.pendingEmail);case _:
+return $default(_that.isSaving,_that.errorMessage,_that.codeSent,_that.pendingEmail,_that.lastSentAt);case _:
   return null;
 
 }
@@ -209,13 +210,14 @@ return $default(_that.isSaving,_that.errorMessage,_that.codeSent,_that.pendingEm
 
 
 class _AuthFormState extends AuthFormState {
-  const _AuthFormState({this.isSaving = false, this.errorMessage, this.codeSent = false, this.pendingEmail}): super._();
+  const _AuthFormState({this.isSaving = false, this.errorMessage, this.codeSent = false, this.pendingEmail, this.lastSentAt}): super._();
   
 
 @override@JsonKey() final  bool isSaving;
 @override final  String? errorMessage;
 @override@JsonKey() final  bool codeSent;
 @override final  String? pendingEmail;
+@override final  DateTime? lastSentAt;
 
 /// Create a copy of AuthFormState
 /// with the given fields replaced by the non-null parameter values.
@@ -227,16 +229,16 @@ _$AuthFormStateCopyWith<_AuthFormState> get copyWith => __$AuthFormStateCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AuthFormState&&(identical(other.isSaving, isSaving) || other.isSaving == isSaving)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&(identical(other.codeSent, codeSent) || other.codeSent == codeSent)&&(identical(other.pendingEmail, pendingEmail) || other.pendingEmail == pendingEmail));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AuthFormState&&(identical(other.isSaving, isSaving) || other.isSaving == isSaving)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&(identical(other.codeSent, codeSent) || other.codeSent == codeSent)&&(identical(other.pendingEmail, pendingEmail) || other.pendingEmail == pendingEmail)&&(identical(other.lastSentAt, lastSentAt) || other.lastSentAt == lastSentAt));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,isSaving,errorMessage,codeSent,pendingEmail);
+int get hashCode => Object.hash(runtimeType,isSaving,errorMessage,codeSent,pendingEmail,lastSentAt);
 
 @override
 String toString() {
-  return 'AuthFormState(isSaving: $isSaving, errorMessage: $errorMessage, codeSent: $codeSent, pendingEmail: $pendingEmail)';
+  return 'AuthFormState(isSaving: $isSaving, errorMessage: $errorMessage, codeSent: $codeSent, pendingEmail: $pendingEmail, lastSentAt: $lastSentAt)';
 }
 
 
@@ -247,7 +249,7 @@ abstract mixin class _$AuthFormStateCopyWith<$Res> implements $AuthFormStateCopy
   factory _$AuthFormStateCopyWith(_AuthFormState value, $Res Function(_AuthFormState) _then) = __$AuthFormStateCopyWithImpl;
 @override @useResult
 $Res call({
- bool isSaving, String? errorMessage, bool codeSent, String? pendingEmail
+ bool isSaving, String? errorMessage, bool codeSent, String? pendingEmail, DateTime? lastSentAt
 });
 
 
@@ -264,13 +266,14 @@ class __$AuthFormStateCopyWithImpl<$Res>
 
 /// Create a copy of AuthFormState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? isSaving = null,Object? errorMessage = freezed,Object? codeSent = null,Object? pendingEmail = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? isSaving = null,Object? errorMessage = freezed,Object? codeSent = null,Object? pendingEmail = freezed,Object? lastSentAt = freezed,}) {
   return _then(_AuthFormState(
 isSaving: null == isSaving ? _self.isSaving : isSaving // ignore: cast_nullable_to_non_nullable
 as bool,errorMessage: freezed == errorMessage ? _self.errorMessage : errorMessage // ignore: cast_nullable_to_non_nullable
 as String?,codeSent: null == codeSent ? _self.codeSent : codeSent // ignore: cast_nullable_to_non_nullable
 as bool,pendingEmail: freezed == pendingEmail ? _self.pendingEmail : pendingEmail // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,lastSentAt: freezed == lastSentAt ? _self.lastSentAt : lastSentAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,
   ));
 }
 

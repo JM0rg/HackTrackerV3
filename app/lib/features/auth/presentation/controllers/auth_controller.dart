@@ -7,7 +7,8 @@ import '../../data/auth_repository.dart';
 part 'auth_controller.freezed.dart';
 
 /// Form state for the sign-in flow. [codeSent]/[pendingEmail] drive the
-/// transition to the OTP verification screen.
+/// transition to the OTP verification screen; [lastSentAt] backs the resend
+/// cooldown timer.
 @freezed
 abstract class AuthFormState
     with _$AuthFormState
@@ -17,6 +18,7 @@ abstract class AuthFormState
     String? errorMessage,
     @Default(false) bool codeSent,
     String? pendingEmail,
+    DateTime? lastSentAt,
   }) = _AuthFormState;
 
   const AuthFormState._();
@@ -38,15 +40,34 @@ class AuthController extends Notifier<AuthFormState>
 
   AuthRepository get _repo => ref.read(authRepositoryProvider);
 
-  Future<void> sendCode(String email) async {
+  /// Sends a one-time code to [email]. On success, transitions the form into
+  /// the code-sent state and stamps [lastSentAt] for the resend cooldown.
+  Future<bool> sendCode(String email) async {
     final ok = await guard(() => _repo.sendEmailOtp(email));
-    if (ok) state = state.copyWith(codeSent: true, pendingEmail: email);
+    if (ok) {
+      state = state.copyWith(
+        codeSent: true,
+        pendingEmail: email,
+        lastSentAt: DateTime.now(),
+      );
+    }
+    return ok;
   }
 
   Future<bool> verifyCode(String token) {
     final email = state.pendingEmail;
     if (email == null) return Future.value(false);
     return guard(() => _repo.verifyEmailOtp(email: email, token: token));
+  }
+
+  /// Clears the code-sent flag so the user can edit their email and restart.
+  void changeEmail() {
+    state = state.copyWith(
+      codeSent: false,
+      pendingEmail: null,
+      lastSentAt: null,
+      errorMessage: null,
+    );
   }
 }
 
@@ -55,7 +76,7 @@ final authControllerProvider = NotifierProvider<AuthController, AuthFormState>(
 );
 
 /// Streams Supabase auth changes; the router listens to this to re-run redirect
-/// logic on sign-in/out.
+/// logic on sign-in/out, and the app shell uses it to kick a sync on sign-in.
 final authChangesProvider = StreamProvider((ref) {
   return ref.watch(authRepositoryProvider).authStateChanges;
 });

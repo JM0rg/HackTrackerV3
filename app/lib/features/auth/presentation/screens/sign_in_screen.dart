@@ -8,7 +8,8 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../controllers/auth_controller.dart';
 
-/// Passwordless entry point: Apple, Google, or email one-time code.
+/// Single-screen passwordless entry: type your email, get a code. Unified
+/// sign-up and sign-in — first-timers are created automatically on verify.
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
 
@@ -18,20 +19,34 @@ class SignInScreen extends ConsumerStatefulWidget {
 
 class _SignInScreenState extends ConsumerState<SignInScreen> {
   final _email = TextEditingController();
+  bool _isValidEmail = false;
+
+  // RFC-pragmatic: at least one char, an @, at least one char, a dot, 2+ chars.
+  static final _emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$');
+
+  @override
+  void initState() {
+    super.initState();
+    _email.addListener(_recheck);
+  }
 
   @override
   void dispose() {
+    _email.removeListener(_recheck);
     _email.dispose();
     super.dispose();
   }
 
-  Future<void> _sendCode() async {
-    await ref
+  void _recheck() {
+    final valid = _emailRegex.hasMatch(_email.text.trim());
+    if (valid != _isValidEmail) setState(() => _isValidEmail = valid);
+  }
+
+  Future<void> _continue() async {
+    final ok = await ref
         .read(authControllerProvider.notifier)
         .sendCode(_email.text.trim());
-    if (mounted &&
-        ref.read(authControllerProvider).codeSent &&
-        context.mounted) {
+    if (ok && mounted && context.mounted) {
       await context.push(Routes.verify);
     }
   }
@@ -49,53 +64,72 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
             padding: EdgeInsets.all(spacing.lg),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Icon(
-                    Icons.sports_baseball_outlined,
-                    size: 56,
-                    color: context.colors.primary,
-                  ),
-                  SizedBox(height: spacing.md),
-                  Text(
-                    'HackTracker',
-                    textAlign: TextAlign.center,
-                    style: context.text.titleL,
-                  ),
-                  SizedBox(height: spacing.xs),
-                  Text(
-                    'Track your slowpitch hitting stats',
-                    textAlign: TextAlign.center,
-                    style: context.text.body.copyWith(
-                      color: context.colors.secondaryText,
+              child: AutofillGroup(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Icon(
+                      Icons.sports_baseball_outlined,
+                      size: 56,
+                      color: context.colors.primary,
                     ),
-                  ),
-                  SizedBox(height: spacing.xl),
-                  AppTextField(
-                    label: 'Email',
-                    controller: _email,
-                    hint: 'you@example.com',
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                  SizedBox(height: spacing.md),
-                  AppButton(
-                    label: 'Email me a code',
-                    isBusy: busy,
-                    onPressed: busy ? null : _sendCode,
-                  ),
-                  if (state.errorMessage != null) ...[
                     SizedBox(height: spacing.md),
                     Text(
-                      state.errorMessage!,
+                      'Get started',
+                      textAlign: TextAlign.center,
+                      style: context.text.titleL,
+                    ),
+                    SizedBox(height: spacing.xs),
+                    Text(
+                      "Enter your email and we'll send a 6-digit code. "
+                      'New here? Your account is created automatically.',
+                      textAlign: TextAlign.center,
+                      style: context.text.body.copyWith(
+                        color: context.colors.secondaryText,
+                      ),
+                    ),
+                    SizedBox(height: spacing.xl),
+                    AppTextField(
+                      label: 'Email',
+                      controller: _email,
+                      hint: 'you@example.com',
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.email],
+                      textInputAction: TextInputAction.go,
+                      autofocus: true,
+                      enabled: !busy,
+                      onSubmitted: (_) {
+                        if (_isValidEmail && !busy) _continue();
+                      },
+                    ),
+                    SizedBox(height: spacing.md),
+                    AppButton(
+                      label: 'Continue',
+                      isBusy: busy,
+                      onPressed: (_isValidEmail && !busy) ? _continue : null,
+                    ),
+                    if (state.errorMessage != null) ...[
+                      SizedBox(height: spacing.md),
+                      Text(
+                        state.errorMessage!,
+                        textAlign: TextAlign.center,
+                        style: context.text.caption.copyWith(
+                          color: context.colors.danger,
+                        ),
+                      ),
+                    ],
+                    SizedBox(height: spacing.xl),
+                    Text(
+                      "We'll never share your email. By continuing you agree "
+                      "to HackTracker's Terms and Privacy Policy.",
                       textAlign: TextAlign.center,
                       style: context.text.caption.copyWith(
-                        color: context.colors.danger,
+                        color: context.colors.secondaryText,
                       ),
                     ),
                   ],
-                ],
+                ),
               ),
             ),
           ),

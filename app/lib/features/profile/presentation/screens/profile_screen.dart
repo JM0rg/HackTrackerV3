@@ -8,8 +8,9 @@ import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_scaffold.dart';
 import '../../../../core/widgets/confirmation_dialog.dart';
 import '../../../auth/data/auth_repository.dart';
+import '../../data/profile_repository.dart';
 
-/// Account screen: shows the signed-in identity and the sign-out action.
+/// Account screen: shows identity (display name + email) and the sign-out action.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -28,8 +29,12 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final client = ref.watch(supabaseClientProvider);
-    final email = client.auth.currentUser?.email ?? 'Signed in';
+    final email = client.auth.currentUser?.email ?? '';
+    final profile = ref.watch(myProfileProvider).value;
+    final displayName = profile?.displayName;
+    final initials = _initialsFor(displayName, email);
     final spacing = context.themeSpacing;
+    final colors = context.colors;
 
     return AppScaffold(
       title: 'Profile',
@@ -40,18 +45,32 @@ class ProfileScreen extends ConsumerWidget {
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: context.colors.primary.withValues(
-                    alpha: 0.15,
+                  radius: 28,
+                  backgroundColor: colors.primary.withValues(alpha: 0.15),
+                  child: Text(
+                    initials,
+                    style: context.text.titleM.copyWith(color: colors.primary),
                   ),
-                  child: Icon(Icons.person, color: context.colors.primary),
                 ),
                 SizedBox(width: spacing.md),
                 Expanded(
-                  child: Text(
-                    email,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.text.body,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayName ?? 'Signed in',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.text.titleM,
+                      ),
+                      if (email.isNotEmpty)
+                        Text(
+                          email,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.text.caption,
+                        ),
+                    ],
                   ),
                 ),
               ],
@@ -66,5 +85,15 @@ class ProfileScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  String _initialsFor(String? displayName, String email) {
+    final name = displayName?.trim();
+    if (name != null && name.isNotEmpty) {
+      final parts = name.split(RegExp(r'\s+')).take(2);
+      return parts.map((p) => p.characters.first.toUpperCase()).join();
+    }
+    if (email.isNotEmpty) return email.characters.first.toUpperCase();
+    return '?';
   }
 }

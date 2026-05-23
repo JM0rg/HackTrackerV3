@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/theme_context_extensions.dart';
 
@@ -12,9 +13,18 @@ class AppTextField extends StatelessWidget {
     this.keyboardType,
     this.textCapitalization = TextCapitalization.none,
     this.maxLines = 1,
+    this.maxLength,
     this.errorText,
     this.onChanged,
+    this.onSubmitted,
     this.autofocus = false,
+    this.autofillHints,
+    this.textInputAction,
+    this.textAlign = TextAlign.start,
+    this.style,
+    this.inputFormatters,
+    this.focusNode,
+    this.enabled = true,
     super.key,
   });
 
@@ -24,9 +34,18 @@ class AppTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final TextCapitalization textCapitalization;
   final int maxLines;
+  final int? maxLength;
   final String? errorText;
   final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
   final bool autofocus;
+  final Iterable<String>? autofillHints;
+  final TextInputAction? textInputAction;
+  final TextAlign textAlign;
+  final TextStyle? style;
+  final List<TextInputFormatter>? inputFormatters;
+  final FocusNode? focusNode;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -46,16 +65,25 @@ class AppTextField extends StatelessWidget {
         SizedBox(height: spacing.xs),
         TextField(
           controller: controller,
+          focusNode: focusNode,
           keyboardType: keyboardType,
           textCapitalization: textCapitalization,
           maxLines: maxLines,
+          maxLength: maxLength,
           autofocus: autofocus,
           onChanged: onChanged,
-          style: context.text.body,
+          onSubmitted: onSubmitted,
+          autofillHints: autofillHints,
+          textInputAction: textInputAction,
+          textAlign: textAlign,
+          enabled: enabled,
+          inputFormatters: inputFormatters,
+          style: style ?? context.text.body,
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: context.text.body.copyWith(color: colors.secondaryText),
             errorText: errorText,
+            counterText: '',
             isDense: true,
             filled: true,
             fillColor: colors.surfaceAlt,
@@ -67,6 +95,7 @@ class AppTextField extends StatelessWidget {
             focusedBorder: border(colors.primary),
             errorBorder: border(colors.danger),
             focusedErrorBorder: border(colors.danger),
+            disabledBorder: border(colors.border),
           ),
         ),
       ],

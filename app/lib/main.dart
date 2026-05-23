@@ -12,6 +12,7 @@ import 'features/groups/services/groups_syncer.dart';
 import 'features/lineups/services/lineup_slots_syncer.dart';
 import 'features/lineups/services/lineups_syncer.dart';
 import 'features/players/services/players_syncer.dart';
+import 'features/profile/services/profiles_syncer.dart';
 import 'features/teams/services/teams_syncer.dart';
 
 Future<void> main() async {
@@ -30,6 +31,7 @@ Future<void> main() async {
         // Register feature syncers in FK-dependency order.
         syncersProvider.overrideWith(
           (ref) => [
+            ProfilesSyncer(ref.watch(appDatabaseProvider)),
             TeamsSyncer(ref.watch(appDatabaseProvider)),
             PlayersSyncer(ref.watch(appDatabaseProvider)),
             GroupsSyncer(ref.watch(appDatabaseProvider)),
