@@ -29,6 +29,13 @@ class GroupsRepository {
     return query.watch().map((rows) => rows.map(_toDomain).toList());
   }
 
+  Stream<List<Group>> watchForTeam(String teamId) {
+    final query = _db.select(_db.groups)
+      ..where((g) => g.teamId.equals(teamId) & g.deletedAt.isNull())
+      ..orderBy([(g) => OrderingTerm(expression: g.name)]);
+    return query.watch().map((rows) => rows.map(_toDomain).toList());
+  }
+
   Stream<Group?> watchOne(String id) {
     final query = _db.select(_db.groups)..where((g) => g.id.equals(id));
     return query.watchSingleOrNull().map(
@@ -183,6 +190,13 @@ final groupsRepositoryProvider = Provider<GroupsRepository>((ref) {
 
 final groupsStreamProvider = StreamProvider<List<Group>>((ref) {
   return ref.watch(groupsRepositoryProvider).watchAll();
+});
+
+final groupsForTeamProvider = StreamProvider.family<List<Group>, String>((
+  ref,
+  teamId,
+) {
+  return ref.watch(groupsRepositoryProvider).watchForTeam(teamId);
 });
 
 final groupStreamProvider = StreamProvider.family<Group?, String>((ref, id) {

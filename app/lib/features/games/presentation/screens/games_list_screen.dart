@@ -6,19 +6,21 @@ import '../../../../core/widgets/app_scaffold.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/skeleton_loader.dart';
 import '../../../../core/widgets/sync_status_indicator.dart';
+import '../../../teams/data/teams_repository.dart';
+import '../../../teams/presentation/widgets/team_selector.dart';
 import '../../data/games_repository.dart';
 import '../../domain/game.dart';
 import '../widgets/game_card.dart';
 import 'game_detail_screen.dart';
 import 'game_edit_screen.dart';
 
-/// Games tab: the full schedule across all of the user's teams.
+/// Games tab: the schedule for the currently selected team.
 class GamesListScreen extends ConsumerWidget {
   const GamesListScreen({super.key});
 
   void _openCreate(BuildContext context) {
     Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (_) => const GameEditScreen(),
         fullscreenDialog: true,
       ),
@@ -27,16 +29,31 @@ class GamesListScreen extends ConsumerWidget {
 
   void _openDetail(BuildContext context, Game game) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => GameDetailScreen(gameId: game.id)),
+      MaterialPageRoute<void>(
+        builder: (_) => GameDetailScreen(gameId: game.id),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final games = ref.watch(gamesStreamProvider);
+    final teamId = ref.watch(currentTeamIdProvider);
+
+    if (teamId == null) {
+      return const AppScaffold(
+        titleWidget: TeamSelector(),
+        body: EmptyState(
+          icon: Icons.event_outlined,
+          title: 'No team selected',
+          message: 'Add a team from the dropdown above to schedule games.',
+        ),
+      );
+    }
+
+    final games = ref.watch(gamesForTeamProvider(teamId));
 
     return AppScaffold(
-      title: 'Games',
+      titleWidget: const TeamSelector(),
       actions: const [SyncStatusIndicator()],
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openCreate(context),

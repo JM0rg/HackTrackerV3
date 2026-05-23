@@ -11,10 +11,7 @@ abstract final class Routes {
   static const welcomeTeam = '/welcome/team';
 
   static const teams = '/';
-  static const teamDetail = '/teams/:teamId';
   static const games = '/games';
   static const groups = '/groups';
   static const profile = '/profile';
-
-  static String teamDetailPath(String teamId) => '/teams/$teamId';
 }

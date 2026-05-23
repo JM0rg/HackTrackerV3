@@ -131,3 +131,35 @@ final teamsStreamProvider = StreamProvider<List<Team>>((ref) {
 final teamStreamProvider = StreamProvider.family<Team?, String>((ref, id) {
   return ref.watch(teamsRepositoryProvider).watchOne(id);
 });
+
+/// User's explicit team selection from the team dropdown. Null means "pick
+/// the first one for me." In-memory; resets to first team on app restart.
+class TeamSelectionController extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void select(String teamId) => state = teamId;
+}
+
+final teamSelectionProvider =
+    NotifierProvider<TeamSelectionController, String?>(
+      TeamSelectionController.new,
+    );
+
+/// The id of the currently active team — the user's explicit pick if it
+/// still exists, otherwise the first team in the list, otherwise null.
+final currentTeamIdProvider = Provider<String?>((ref) {
+  final teams = ref.watch(teamsStreamProvider).value;
+  if (teams == null || teams.isEmpty) return null;
+  final selected = ref.watch(teamSelectionProvider);
+  if (selected != null && teams.any((t) => t.id == selected)) return selected;
+  return teams.first.id;
+});
+
+/// The currently active [Team] object, or null when none is selected.
+final currentTeamProvider = Provider<Team?>((ref) {
+  final id = ref.watch(currentTeamIdProvider);
+  if (id == null) return null;
+  final teams = ref.watch(teamsStreamProvider).value;
+  return teams?.where((t) => t.id == id).firstOrNull;
+});

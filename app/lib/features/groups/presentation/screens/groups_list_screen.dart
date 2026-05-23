@@ -6,19 +6,21 @@ import '../../../../core/widgets/app_scaffold.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/skeleton_loader.dart';
 import '../../../../core/widgets/sync_status_indicator.dart';
+import '../../../teams/data/teams_repository.dart';
+import '../../../teams/presentation/widgets/team_selector.dart';
 import '../../data/groups_repository.dart';
 import '../../domain/group.dart';
 import '../widgets/group_card.dart';
 import 'group_detail_screen.dart';
 import 'group_edit_screen.dart';
 
-/// Groups tab (seasons & tournaments) across all of the user's teams.
+/// Groups tab (seasons & tournaments) for the currently selected team.
 class GroupsListScreen extends ConsumerWidget {
   const GroupsListScreen({super.key});
 
   void _openCreate(BuildContext context) {
     Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (_) => const GroupEditScreen(),
         fullscreenDialog: true,
       ),
@@ -27,16 +29,33 @@ class GroupsListScreen extends ConsumerWidget {
 
   void _openDetail(BuildContext context, Group group) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => GroupDetailScreen(groupId: group.id)),
+      MaterialPageRoute<void>(
+        builder: (_) => GroupDetailScreen(groupId: group.id),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final groups = ref.watch(groupsStreamProvider);
+    final teamId = ref.watch(currentTeamIdProvider);
+
+    if (teamId == null) {
+      return const AppScaffold(
+        titleWidget: TeamSelector(),
+        body: EmptyState(
+          icon: Icons.emoji_events_outlined,
+          title: 'No team selected',
+          message:
+              'Add a team from the dropdown above to create seasons and '
+              'tournaments.',
+        ),
+      );
+    }
+
+    final groups = ref.watch(groupsForTeamProvider(teamId));
 
     return AppScaffold(
-      title: 'Groups',
+      titleWidget: const TeamSelector(),
       actions: const [SyncStatusIndicator()],
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openCreate(context),

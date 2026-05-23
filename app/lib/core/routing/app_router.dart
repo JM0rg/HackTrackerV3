@@ -14,8 +14,7 @@ import '../../features/onboarding/presentation/screens/welcome_screen.dart';
 import '../../features/profile/data/profile_repository.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/teams/data/teams_repository.dart';
-import '../../features/teams/presentation/screens/team_detail_screen.dart';
-import '../../features/teams/presentation/screens/teams_list_screen.dart';
+import '../../features/teams/presentation/screens/team_screen.dart';
 import '../../shell/app_shell.dart';
 import 'routes.dart';
 
@@ -108,15 +107,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: Routes.teams,
-                builder: (_, _) => const TeamsListScreen(),
-                routes: [
-                  GoRoute(
-                    path: 'teams/:teamId',
-                    builder: (_, state) => TeamDetailScreen(
-                      teamId: state.pathParameters['teamId']!,
-                    ),
-                  ),
-                ],
+                builder: (_, _) => const TeamScreen(),
               ),
             ],
           ),

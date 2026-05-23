@@ -32,6 +32,15 @@ class GamesRepository {
     return query.watch().map((rows) => rows.map(_toDomain).toList());
   }
 
+  Stream<List<Game>> watchForTeam(String teamId) {
+    final query = _db.select(_db.games)
+      ..where((g) => g.teamId.equals(teamId) & g.deletedAt.isNull())
+      ..orderBy([
+        (g) => OrderingTerm(expression: g.startTime, mode: OrderingMode.desc),
+      ]);
+    return query.watch().map((rows) => rows.map(_toDomain).toList());
+  }
+
   Stream<Game?> watchOne(String id) {
     final query = _db.select(_db.games)..where((g) => g.id.equals(id));
     return query.watchSingleOrNull().map(
@@ -167,6 +176,13 @@ final gamesRepositoryProvider = Provider<GamesRepository>((ref) {
 
 final gamesStreamProvider = StreamProvider<List<Game>>((ref) {
   return ref.watch(gamesRepositoryProvider).watchAll();
+});
+
+final gamesForTeamProvider = StreamProvider.family<List<Game>, String>((
+  ref,
+  teamId,
+) {
+  return ref.watch(gamesRepositoryProvider).watchForTeam(teamId);
 });
 
 final gameStreamProvider = StreamProvider.family<Game?, String>((ref, id) {

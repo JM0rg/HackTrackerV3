@@ -28,7 +28,8 @@ abstract class TeamFormState
 }
 
 /// Backs the create/edit team form. Passing a null `id` creates; otherwise it
-/// updates. Returns `true` on success so the screen can pop.
+/// updates. Returns the team's id on success (so callers can auto-select the
+/// newly-created team) or null on failure.
 class TeamEditController extends Notifier<TeamFormState>
     with BaseNotifierMixin<TeamFormState> {
   @override
@@ -36,35 +37,43 @@ class TeamEditController extends Notifier<TeamFormState>
 
   TeamsRepository get _repo => ref.read(teamsRepositoryProvider);
 
-  Future<bool> save({
+  Future<String?> save({
     String? id,
     required String name,
     required TeamType teamType,
     String? primaryColor,
     String? secondaryColor,
-  }) {
+  }) async {
     if (name.trim().isEmpty) {
       state = state.withError('Team name is required');
-      return Future.value(false);
+      return null;
     }
     if (id == null) {
       final ownerId = ref.read(currentUserIdProvider);
       if (ownerId == null) {
         state = state.withError('You must be signed in');
-        return Future.value(false);
+        return null;
       }
-      return guard(() async {
-        final result = await _repo.create(
-          name: name.trim(),
-          teamType: teamType,
-          ownerId: ownerId,
-          primaryColor: primaryColor,
-          secondaryColor: secondaryColor,
-        );
-        return result.map((_) {});
-      });
+      state = state.withSaving(true).withError(null);
+      final result = await _repo.create(
+        name: name.trim(),
+        teamType: teamType,
+        ownerId: ownerId,
+        primaryColor: primaryColor,
+        secondaryColor: secondaryColor,
+      );
+      return result.when(
+        ok: (newId) {
+          state = state.withSaving(false);
+          return newId;
+        },
+        err: (failure) {
+          state = state.withSaving(false).withError(failure.message);
+          return null;
+        },
+      );
     }
-    return guard(
+    final ok = await guard(
       () => _repo.update(
         id,
         name: name.trim(),
@@ -73,6 +82,7 @@ class TeamEditController extends Notifier<TeamFormState>
         secondaryColor: secondaryColor,
       ),
     );
+    return ok ? id : null;
   }
 }
 

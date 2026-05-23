@@ -33,9 +33,9 @@ class AppShell extends StatelessWidget {
         backgroundColor: context.colors.surface,
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.groups_outlined),
-            selectedIcon: Icon(Icons.groups),
-            label: 'Teams',
+            icon: Icon(Icons.shield_outlined),
+            selectedIcon: Icon(Icons.shield),
+            label: 'Team',
           ),
           NavigationDestination(
             icon: Icon(Icons.event_outlined),

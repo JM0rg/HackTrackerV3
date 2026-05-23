@@ -32,10 +32,10 @@ class _TeamEditScreenState extends ConsumerState<TeamEditScreen> {
   }
 
   Future<void> _save() async {
-    final ok = await ref
+    final savedId = await ref
         .read(teamEditControllerProvider.notifier)
         .save(id: widget.team?.id, name: _name.text, teamType: _type);
-    if (ok && mounted) Navigator.of(context).pop();
+    if (savedId != null && mounted) Navigator.of(context).pop(savedId);
   }
 
   @override
