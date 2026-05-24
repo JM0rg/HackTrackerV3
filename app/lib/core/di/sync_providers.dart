@@ -23,6 +23,21 @@ class SyncStatusController extends Notifier<SyncStatus> {
   void set(SyncStatus status) => state = status;
 }
 
+/// Last error message from the sync engine — set to null on a successful
+/// cycle, set to the server's message (PostgrestException/AuthException) on
+/// failure. Surfaced in the offline banner so a sync failure tells you *why*.
+final lastSyncErrorProvider =
+    NotifierProvider<LastSyncErrorController, String?>(
+      LastSyncErrorController.new,
+    );
+
+class LastSyncErrorController extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? message) => state = message;
+}
+
 /// The app-wide sync engine. Feature repositories read this to request a sync
 /// after a local write.
 final syncEngineProvider = Provider<SyncEngine>((ref) {
@@ -31,5 +46,6 @@ final syncEngineProvider = Provider<SyncEngine>((ref) {
     remote: ref.watch(supabaseClientProvider),
     syncers: ref.watch(syncersProvider),
     onStatus: (status) => ref.read(syncStatusProvider.notifier).set(status),
+    onError: (message) => ref.read(lastSyncErrorProvider.notifier).set(message),
   );
 });

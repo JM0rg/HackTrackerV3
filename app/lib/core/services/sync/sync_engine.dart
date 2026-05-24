@@ -21,15 +21,18 @@ class SyncEngine {
     required SupabaseClient remote,
     required List<TableSyncer> syncers,
     required void Function(SyncStatus status) onStatus,
+    required void Function(String? message) onError,
   }) : _db = db,
        _remote = remote,
        _syncers = syncers,
-       _onStatus = onStatus;
+       _onStatus = onStatus,
+       _onError = onError;
 
   final AppDatabase _db;
   final SupabaseClient _remote;
   final List<TableSyncer> _syncers;
   final void Function(SyncStatus status) _onStatus;
+  final void Function(String? message) _onError;
 
   Future<void>? _inFlight;
   bool _rerunRequested = false;
@@ -71,11 +74,25 @@ class SyncEngine {
         final newest = await syncer.pull(_remote, since);
         if (newest != null) await _writeCursor(syncer.table, newest);
       }
+      _onError(null);
       _onStatus(SyncStatus.idle);
     } catch (error, stack) {
       AppLogger.error('Sync cycle failed', error, stack);
+      _onError(_describeError(error));
       _onStatus(SyncStatus.error);
     }
+  }
+
+  /// Pulls a short, user-facing message out of whatever the sync threw —
+  /// PostgrestException, AuthException, or any other error.
+  String _describeError(Object error) {
+    if (error is PostgrestException) {
+      return error.message;
+    }
+    if (error is AuthException) {
+      return error.message;
+    }
+    return error.toString();
   }
 
   Future<DateTime?> _readCursor(String table) async {

@@ -15,6 +15,7 @@ class OfflineBanner extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final online = ref.watch(connectivityProvider).value ?? true;
     final status = ref.watch(syncStatusProvider);
+    final lastError = ref.watch(lastSyncErrorProvider);
     final colors = context.colors;
     final spacing = context.themeSpacing;
 
@@ -25,7 +26,13 @@ class OfflineBanner extends ConsumerWidget {
             colors.secondaryText,
           )
         : status == SyncStatus.error
-        ? (true, 'Sync failed — will retry', colors.danger)
+        ? (
+            true,
+            lastError == null
+                ? 'Sync failed — will retry'
+                : 'Sync failed: $lastError',
+            colors.danger,
+          )
         : (false, '', colors.secondaryText);
 
     if (!visible) return const SizedBox.shrink();
