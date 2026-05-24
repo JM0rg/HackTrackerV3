@@ -13,6 +13,7 @@ import '../../../core/services/sync/sync_state.dart';
 import '../../../core/utils/uuid.dart';
 import '../../../database/app_database.dart';
 import '../domain/game.dart';
+import '../domain/game_result.dart';
 
 /// Drift-only persistence for games. Same offline-first contract as teams:
 /// local write, dirty flag, sync nudge. The W/L/T [result] is computed locally
@@ -76,7 +77,13 @@ class GamesRepository {
               status: Value(status.code),
               ourScore: Value(ourScore),
               oppScore: Value(oppScore),
-              result: Value(_computeResult(status, ourScore, oppScore)),
+              result: Value(
+                computeGameResult(
+                  status: status,
+                  ourScore: ourScore,
+                  oppScore: oppScore,
+                ),
+              ),
               notes: Value(notes),
               syncState: const Value(SyncState.pendingCreate),
             ),
@@ -108,7 +115,13 @@ class GamesRepository {
           status: Value(status.code),
           ourScore: Value(ourScore),
           oppScore: Value(oppScore),
-          result: Value(_computeResult(status, ourScore, oppScore)),
+          result: Value(
+            computeGameResult(
+              status: status,
+              ourScore: ourScore,
+              oppScore: oppScore,
+            ),
+          ),
           notes: Value(notes),
           updatedAt: Value(DateTime.now().toUtc()),
           syncState: const Value(SyncState.pendingUpdate),
@@ -127,17 +140,6 @@ class GamesRepository {
         ),
       );
     });
-  }
-
-  String? _computeResult(GameStatus status, int? ourScore, int? oppScore) {
-    if (status != GameStatus.finalized ||
-        ourScore == null ||
-        oppScore == null) {
-      return null;
-    }
-    if (ourScore > oppScore) return 'W';
-    if (ourScore < oppScore) return 'L';
-    return 'T';
   }
 
   Future<Result<T>> _guard<T>(Future<T> Function() action) async {

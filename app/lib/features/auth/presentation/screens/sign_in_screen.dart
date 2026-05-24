@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/routing/routes.dart';
 import '../../../../core/theme/theme_context_extensions.dart';
+import '../../../../core/utils/email_validator.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../controllers/auth_controller.dart';
@@ -21,9 +22,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   final _email = TextEditingController();
   bool _isValidEmail = false;
 
-  // RFC-pragmatic: at least one char, an @, at least one char, a dot, 2+ chars.
-  static final _emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$');
-
   @override
   void initState() {
     super.initState();
@@ -38,7 +36,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   }
 
   void _recheck() {
-    final valid = _emailRegex.hasMatch(_email.text.trim());
+    final valid = EmailValidator.isValid(_email.text);
     if (valid != _isValidEmail) setState(() => _isValidEmail = valid);
   }
 
