@@ -1,9 +1,0 @@
-# Files allowed to exceed the 600-LOC cap.
-#
-# Add a path here only when:
-#   1. The file is genuinely too cohesive to split (one state machine, one
-#      orchestrator, one large screen with no obvious seams), AND
-#   2. You add a one-line comment explaining why.
-#
-# Remove entries when a file drops back under the cap. Empty for now — all
-# files are under 600 LOC.
