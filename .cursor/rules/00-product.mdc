@@ -1,0 +1,22 @@
+---
+description: Product invariants — offline scoring, no account wall, unilateral slowpitch
+alwaysApply: true
+---
+
+# Product
+
+HackTracker is a **player-scorer** slowpitch app. Score OUR lineup only. Opponent is a name + run total. They never need the app.
+
+- Every install has a local **Person**. No first-run choice. Launch is **You**. Team is optional (Team tab).
+- **No account required** to log hitting, create a team, roster, or score. Account is only for sync, invites, and premium.
+- **Never** put `SUPABASE_SECRET_API_KEY` in the Flutter client. Client dart-defines: `SUPABASE_URL`, `SUPABASE_ANON_KEY` only.
+- **At-bats, not pitches.** Field Mode has no result pad. The batter is a chip on the diamond: drag it to a base, past the fence, or flick it down for an out; The row under the diamond then asks what it has to, and the play is not filed until it is answered: an out asks Fly · Ground · Line · K; first base asks 1B · BB · ROE · FC; a personal hit asks RBI, never assuming zero. Second, third and home in a team game are unambiguous and file on release. The chip is locked while a question stands, and the row carries a cancel. A run scoring on a fly is a sac fly, on a grounder an RBI groundout. FC and ROE are plain-English fixes on the last play, never buttons. There is no sacrifice bunt in slowpitch.
+- Two game kinds: **personal** (you only; not club stats) and **team** (full lineup; club stats). A personal game has a **scope**: `bat` keeps only your at-bats; `game` also keeps both teams' scores, half by half, ended by hand, with a home/away choice. Opponent and playing-with are optional. Playing-with can be typed once or picked from **personal teams**, a per-person list of names used only to tag games; they are metadata and have nothing to do with `Teams`, which carry a roster and members. A team game may belong to a season, tournament, both, or neither.
+- “That’s me” on a roster links `player.personId`. One me per team. You stats roll up by person, filterable All / team / Free agent.
+- **One gesture per at-bat.** The engine guesses runner advancement; a runner the engine held up is scored by tapping their chip. Corrections live in a sheet off the last-play line, in words. Any play in the log can be changed or deleted, and the rest replays.
+- A game is an **event log** (plate appearances plus finished opponent halves, one sequence). Every cached column on `games` is derived by replaying it — never written by hand.
+- Local Drift SQLite is the **source of truth**. Sync is optional and must no-op when signed out.
+- One live scorer per game. Roles (owner / coach / player / fan) exist on the server; do not invent an account wall to enforce them.
+- Watch/Wear is a later native shell. Keep `watch_events.dart` as a contract only — no watch SDK until that work is requested.
+- No pitch tracking, no scoring the other lineup, no in-app chat, no team finder.
+- App is not in production. **No backward compatibility.** Prefer destructive clean schema/code over shims.

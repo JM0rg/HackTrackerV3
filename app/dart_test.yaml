@@ -1,0 +1,6 @@
+tags:
+  # Pixel comparisons of Field Mode. Regenerate after any layout change:
+  #   flutter test --update-goldens test/features/scoring/field_mode_golden_test.dart
+  # Skip them on a machine that renders text differently:
+  #   flutter test --exclude-tags golden
+  golden:

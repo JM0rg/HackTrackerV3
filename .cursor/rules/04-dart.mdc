@@ -1,0 +1,15 @@
+---
+description: Dart/Flutter conventions for HackTracker
+globs: app/lib/**/*.dart
+alwaysApply: false
+---
+
+# Dart
+
+- `const` constructors. No `print` in features; scoring/stats stay side-effect free.
+- Riverpod: `ref.watch` in `build`, `ref.read` in callbacks. Dispose controllers.
+- After `await`, check `mounted` / `context.mounted` before using `BuildContext`.
+- Wire enums via existing `PaResult.wire` / `fromWire`. Do not invent parallel string maps.
+- Generated Drift: edit `app_database.dart`, never hand-edit `app_database.g.dart`.
+- Tests for any change to `ScoringEngine` or `StatsAggregator` (`app/test/features/...`).
+- Analyzer must stay clean on files you touch. Do not skip `use_build_context_synchronously`.

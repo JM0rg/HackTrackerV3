@@ -1,0 +1,14 @@
+---
+description: Keep design docs current and short — no changelog, no trivia
+alwaysApply: true
+---
+
+# Docs
+
+After a change that alters **product behavior, data model, or navigation**, patch `docs/design.md` (and `README.md` only if run/setup or the one-line product pitch changed). Then stop.
+
+- Facts only. Current truth. A few bullets.
+- Do not add a changelog, dates, “what we did,” or implementation notes (file names, widgets, migrations).
+- Do not document refactors, tests, copy tweaks, or styling.
+- If nothing durable changed, do not touch docs.
+- Never grow `docs/` past `design.md` unless the user asks.

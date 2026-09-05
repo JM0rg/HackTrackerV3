@@ -1,0 +1,16 @@
+---
+description: Drift local source of truth, optional Supabase sync, secrets, RLS
+alwaysApply: true
+---
+
+# Data and sync
+
+- **Write locally first.** UI never waits on the network to save a PA, lineup, or score.
+- `syncState` / dirty flags mark rows for push. Last-write-wins on `updated_at`.
+- `SyncEngine.sync()` returns immediately if there is no session. Do not prompt sign-in from scoring.
+- Today only **teams** push/pull. When adding sync for a table, map both directions in the engine and match `supabase/migrations` column names (snake_case wire, Dart enums as existing `wire` strings).
+- Soft-delete with `deleted_at`. Do not hard-delete synced rows.
+- Schema changes: edit Drift tables, run `dart run build_runner build --delete-conflicting-outputs`, add a **new** Supabase migration. No compatibility columns.
+- RLS stays on. RPCs that join teams are `SECURITY DEFINER` and granted to **authenticated** only, never the service role in the app.
+- Parse `.env` as literal KEY=VALUE. Never `source` it (`$` in secrets breaks bash).
+- Run the app with `bash scripts/run.sh` so only public dart-defines are passed.

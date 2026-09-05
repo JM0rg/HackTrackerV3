@@ -1,0 +1,26 @@
+---
+description: Do not freelance UI. When UI is requested, Apple HIG via existing tokens only
+alwaysApply: true
+---
+
+# UI policy
+
+**Do not restyle, redesign, or “improve” visuals unless the user explicitly asks.** Layout experiments (Cupertino Settings lists, Strava clones, new palettes, new fonts) without a direct request are forbidden.
+
+## When the user does ask for UI work
+
+Ship like a current iPhone app, using what already exists:
+
+- Tokens only: `AppPalette`, `AppTypography`, `AppTheme`, `context.colors` / `themeSpacing` / `themeRadii`. No one-off hex in screens.
+- One visual system. Do not mix iOS grouped tables, Material 3 nav pills, and custom athletic chrome on the same flow.
+- Dynamic Type and 44pt minimum tap targets. VoiceOver labels on icon-only controls.
+- Prefer system navigation (push/pop, large-enough titles, standard sheets) over novel chrome.
+- Empty/error/offline states must exist for any new screen. Safe area + keyboard insets.
+- Dark and light must both work. Theme mode is user-controlled (`themeModeProvider`).
+- Field Mode may stay a dark scoreboard in both themes.
+
+## Do not
+
+- Add a new font, mascot, or “hacker” decoration.
+- Block scoring behind sign-in for a prettier onboarding funnel.
+- Change copy to marketing voice.

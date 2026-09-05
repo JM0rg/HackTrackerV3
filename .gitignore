@@ -1,0 +1,25 @@
+.env
+.env.*
+!.env.example
+
+# Flutter / Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+**/*.iml
+.idea/
+.vscode/
+
+# iOS / Android
+**/Pods/
+**/DerivedData/
+**/local.properties
+**/*.jks
+**/*.keystore
+
+# Coverage / misc
+coverage/
+*.log
+.DS_Store

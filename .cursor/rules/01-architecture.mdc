@@ -1,0 +1,33 @@
+---
+description: Feature layers, core vs feature placement, no cross-feature model imports
+alwaysApply: true
+---
+
+# Architecture
+
+Flutter app lives in `app/`. Follow this on every change. When you touch a messy file, **split toward this layout** — do not grow god files (`tracker_repository.dart` is the one left).
+
+## Features (`app/lib/features/<name>/`)
+
+- `data/` — repository, local queries, feature DTOs
+- `services/` — pure domain logic (no Flutter, no I/O)
+- `presentation/controllers/` — Riverpod notifiers
+- `presentation/providers/` — Riverpod providers
+- `presentation/screens/` — one screen per file
+- `presentation/widgets/` — feature-only UI
+
+## Shared
+
+- Model used by **more than one feature** → `app/lib/core/domain/models/`. Never import a model from `features/A` into `features/B`.
+- `app/lib/core/services/` is **infrastructure only** (sync, connectivity, env). No scoring/stats/XP-style business logic.
+- `app/lib/core/theme/` — tokens and ThemeData only (`app_palette.dart`, `app_typography.dart`, `app_theme.dart`). No feature widgets.
+- Generic chrome → `app/lib/core/widgets/`. Feature-specific chrome stays in the feature.
+
+## Placement test
+
+- Phone/system? → core. User’s team/game/stats? → feature.
+- UI used in one feature? → that feature’s `widgets/`. App-wide? → core widgets or theme.
+
+## State
+
+Riverpod. Routing: go_router. Local DB: Drift. Remote: Supabase. Scoring engine, game replay and stats aggregator stay **pure functions** with unit tests.

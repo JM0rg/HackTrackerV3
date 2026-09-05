@@ -1,0 +1,29 @@
+---
+description: Supabase target project — verify before any schema or data change
+alwaysApply: true
+---
+
+# Supabase
+
+The only project this repo may touch is:
+
+```
+uzyfohclwmkrqlfnlxxw
+```
+
+## Before applying anything
+
+**Look first, every time.** Before `apply_migration`, `execute_sql`, `deploy_edge_function`, a branch operation, or any other write:
+
+1. Confirm the project ref is `uzyfohclwmkrqlfnlxxw`. If a tool call needs a project id and you did not read it from this file or from a live `list_projects`, stop.
+2. Read the current state: `list_migrations` and `list_tables`. Never assume the remote matches `supabase/migrations/` on disk.
+3. Compare that state to the local migration files, and say out loud which files are already applied and which are not.
+4. Name every destructive statement (`drop`, `alter ... drop column`, `delete`, type replacement) before running it, and confirm with the user first. This project is pre-production and prefers a clean destructive schema, but destructive is still destructive and the user decides.
+
+After applying, re-read `list_migrations` to confirm what landed, and run `get_advisors` for security and performance findings.
+
+## Always
+
+- Migrations live in `supabase/migrations/` and are applied from there. Do not hand-write schema changes that skip a migration file.
+- **Never** put `SUPABASE_SECRET_API_KEY` in the Flutter client. Client dart-defines are `SUPABASE_URL` and `SUPABASE_ANON_KEY` only.
+- The local Drift schema is the source of truth for the app. A remote change without a matching Drift change is a bug.
