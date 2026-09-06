@@ -22,6 +22,7 @@ class LineupScreen extends ConsumerWidget {
 
     return AppScaffold(
       title: 'Lineup',
+      leading: homeLeading(context),
       body: players.when(
         data: (roster) {
           return lineup.when(

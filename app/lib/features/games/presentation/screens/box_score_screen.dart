@@ -22,6 +22,7 @@ class BoxScoreScreen extends ConsumerWidget {
 
     return AppScaffold(
       title: 'Box score',
+      leading: homeLeading(context),
       actions: [
         IconButton(
           tooltip: 'Share',

@@ -25,6 +25,7 @@ class GameHubScreen extends ConsumerWidget {
         final live = g.status == 'live';
         return AppScaffold(
           title: '${g.ourRuns}–${g.theirRuns}',
+      leading: homeLeading(context),
           body: ListView(
             padding: EdgeInsets.all(context.themeSpacing.md),
             children: [

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../theme/theme_context_extensions.dart';
 
@@ -163,6 +164,7 @@ class AppScaffold extends StatelessWidget {
     this.actions,
     this.floatingActionButton,
     this.bottom,
+    this.leading,
   });
 
   final String title;
@@ -171,10 +173,14 @@ class AppScaffold extends StatelessWidget {
   final Widget? floatingActionButton;
   final Widget? bottom;
 
+  /// Null lets the app bar show its own back button when there is something to
+  /// pop. See [homeLeading] for screens that can become a stack root.
+  final Widget? leading;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title), actions: actions),
+      appBar: AppBar(title: Text(title), actions: actions, leading: leading),
       body: Column(
         children: [
           const OfflineBanner(),
@@ -242,4 +248,17 @@ Future<bool> confirmAction(
     },
   );
   return result ?? false;
+}
+
+/// A way out for screens that can end up as the root of the stack, which
+/// happens whenever navigation replaces the stack rather than pushing onto it.
+/// Returns null when the app bar's own back button will do.
+Widget? homeLeading(BuildContext context) {
+  if (context.canPop()) return null;
+  return IconButton(
+    key: const Key('leave-home'),
+    tooltip: 'Back to You',
+    icon: const Icon(Icons.close),
+    onPressed: () => context.go('/'),
+  );
 }
