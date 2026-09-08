@@ -23,6 +23,7 @@ class YouScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final me = ref.watch(ensureMeProvider);
+    final currentPerson = ref.watch(meStreamProvider).valueOrNull;
     final games = ref.watch(myGamesStreamProvider);
     final teams = ref.watch(myTeamsStreamProvider);
     final pas = ref.watch(myPaRowsStreamProvider);
@@ -35,7 +36,8 @@ class YouScreen extends ConsumerWidget {
       body: SafeArea(
         bottom: false,
         child: me.when(
-          data: (person) {
+          data: (initialPerson) {
+            final person = currentPerson ?? initialPerson;
             final myTeams = teams.valueOrNull ?? const <Team>[];
             final career = ref
                 .read(meRepositoryProvider)
@@ -145,44 +147,78 @@ class YouScreen extends ConsumerWidget {
     WidgetRef ref,
     Person person,
   ) async {
-    final first = TextEditingController(text: person.firstName);
-    final last = TextEditingController(text: person.lastName);
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          ctx.themeSpacing.md,
-          ctx.themeSpacing.md,
-          ctx.themeSpacing.md,
-          MediaQuery.of(ctx).viewInsets.bottom + ctx.themeSpacing.md,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SheetGrabber(),
-            SizedBox(height: ctx.themeSpacing.md),
-            AppTextField(label: 'First name', controller: first),
-            SizedBox(height: ctx.themeSpacing.sm),
-            AppTextField(label: 'Last name', controller: last),
-            SizedBox(height: ctx.themeSpacing.md),
-            AppButton(
-              label: 'Save',
-              onPressed: () async {
-                await ref
-                    .read(meRepositoryProvider)
-                    .updateMe(firstName: first.text, lastName: last.text);
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-            ),
-          ],
-        ),
-      ),
+      builder: (_) => _NameSheet(person: person),
     );
-    first.dispose();
-    last.dispose();
   }
+}
+
+class _NameSheet extends ConsumerStatefulWidget {
+  const _NameSheet({required this.person});
+  final Person person;
+  @override
+  ConsumerState<_NameSheet> createState() => _NameSheetState();
+}
+
+class _NameSheetState extends ConsumerState<_NameSheet> {
+  late final _first = TextEditingController(text: widget.person.firstName);
+  late final _last = TextEditingController(text: widget.person.lastName);
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _first.dispose();
+    _last.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await ref
+          .read(meRepositoryProvider)
+          .updateMe(firstName: _first.text, lastName: _last.text);
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = 'Could not save your name. Try again.';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+    padding: EdgeInsets.fromLTRB(
+      context.themeSpacing.md,
+      context.themeSpacing.md,
+      context.themeSpacing.md,
+      MediaQuery.viewInsetsOf(context).bottom + context.themeSpacing.md,
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SheetGrabber(),
+        SizedBox(height: context.themeSpacing.md),
+        AppTextField(label: 'First name', controller: _first),
+        SizedBox(height: context.themeSpacing.sm),
+        AppTextField(label: 'Last name', controller: _last),
+        SizedBox(height: context.themeSpacing.md),
+        if (_error != null) Text(_error!),
+        AppButton(label: 'Save', onPressed: _saving ? null : _save),
+      ],
+    ),
+  );
 }
 
 class _Header extends StatelessWidget {

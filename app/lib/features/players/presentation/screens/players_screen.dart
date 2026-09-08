@@ -1,3 +1,4 @@
+import 'package:hacktracker/core/widgets/text_entry_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hacktracker/core/di/providers.dart';
@@ -103,50 +104,33 @@ class PlayersScreen extends ConsumerWidget {
     String teamId, {
     Player? player,
   }) async {
-    final first = TextEditingController(text: player?.firstName ?? '');
-    final last = TextEditingController(text: player?.lastName ?? '');
-    final num = TextEditingController(text: player?.jerseyNumber ?? '');
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            context.themeSpacing.md,
-            context.themeSpacing.md,
-            context.themeSpacing.md,
-            MediaQuery.of(ctx).viewInsets.bottom + context.themeSpacing.md,
+      useSafeArea: true,
+      builder: (_) => TextEntrySheet(
+        fields: [
+          TextEntryField(
+            'First name',
+            initial: player?.firstName ?? '',
+            required: true,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AppTextField(label: 'First name', controller: first),
-              SizedBox(height: context.themeSpacing.sm),
-              AppTextField(label: 'Last name', controller: last),
-              SizedBox(height: context.themeSpacing.sm),
-              AppTextField(label: 'Number', controller: num),
-              SizedBox(height: context.themeSpacing.md),
-              AppButton(
-                label: 'Save',
-                onPressed: () async {
-                  await ref
-                      .read(trackerRepositoryProvider)
-                      .upsertPlayer(
-                        id: player?.id,
-                        teamId: teamId,
-                        firstName: first.text.trim(),
-                        lastName: last.text.trim(),
-                        jerseyNumber: num.text.trim().isEmpty
-                            ? null
-                            : num.text.trim(),
-                      );
-                  if (ctx.mounted) Navigator.pop(ctx);
-                },
-              ),
-            ],
-          ),
-        );
-      },
+          TextEntryField('Last name', initial: player?.lastName ?? ''),
+          TextEntryField('Number', initial: player?.jerseyNumber ?? ''),
+        ],
+        onSave: (values) => ref
+            .read(trackerRepositoryProvider)
+            .upsertPlayer(
+              id: player?.id,
+              teamId: teamId,
+              firstName: values[0],
+              lastName: values[1],
+              jerseyNumber: values[2].isEmpty ? null : values[2],
+              bats: player?.bats ?? 'right',
+              throws: player?.throws_ ?? 'right',
+              gender: player?.gender ?? 'undisclosed',
+            ),
+      ),
     );
   }
 }

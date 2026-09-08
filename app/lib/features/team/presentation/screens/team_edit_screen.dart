@@ -15,6 +15,8 @@ class TeamEditScreen extends ConsumerStatefulWidget {
 class _TeamEditScreenState extends ConsumerState<TeamEditScreen> {
   final _name = TextEditingController();
   String _type = 'mens';
+  bool _saving = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -26,11 +28,15 @@ class _TeamEditScreenState extends ConsumerState<TeamEditScreen> {
   Widget build(BuildContext context) {
     return AppScaffold(
       title: 'New team',
-      body: Padding(
+      body: SingleChildScrollView(
         padding: EdgeInsets.all(context.themeSpacing.md),
         child: Column(
           children: [
-            AppTextField(label: 'Team name', controller: _name),
+            AppTextField(
+              label: 'Team name',
+              controller: _name,
+              onChanged: (_) => setState(() {}),
+            ),
             SizedBox(height: context.themeSpacing.md),
             DropdownButtonFormField<String>(
               initialValue: _type,
@@ -43,21 +49,41 @@ class _TeamEditScreenState extends ConsumerState<TeamEditScreen> {
               decoration: const InputDecoration(labelText: 'Type'),
             ),
             SizedBox(height: context.themeSpacing.lg),
+            if (_error != null) Text(_error!),
             AppButton(
               label: 'Save',
-              onPressed: () async {
-                final team = await ref.read(trackerRepositoryProvider).createTeam(
-                      name: _name.text.trim(),
-                      type: _type,
-                    );
-                await ref.read(meRepositoryProvider).attachMeToNewTeam(team.id);
-                ref.read(currentTeamIdProvider.notifier).state = team.id;
-                if (context.mounted) context.go('/team');
-              },
+              onPressed: _saving || _name.text.trim().isEmpty ? null : _save,
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _save() async {
+    if (_saving || _name.text.trim().isEmpty) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final team = await ref.read(databaseProvider).transaction(() async {
+        final created = await ref
+            .read(trackerRepositoryProvider)
+            .createTeam(name: _name.text.trim(), type: _type);
+        await ref.read(meRepositoryProvider).attachMeToNewTeam(created.id);
+        return created;
+      });
+      if (!mounted) return;
+      ref.read(currentTeamIdProvider.notifier).state = team.id;
+      context.go('/team');
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = 'Could not create the team. Try again.';
+        });
+      }
+    }
   }
 }

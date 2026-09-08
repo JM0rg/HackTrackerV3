@@ -98,6 +98,28 @@ void main() {
   Future<Game> game(String id) async => (await tracker.game(id))!;
 
   group('start sheet', () {
+    testWidgets(
+      'profile save keeps controllers alive through keyboard and sheet dismissal',
+      (tester) async {
+        final r = router();
+        await pump(tester, r);
+        await tester.tap(find.byKey(const Key('you-name')));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField).at(0), 'QA');
+        await tester.enterText(find.byType(TextField).at(1), 'Softball');
+        await tester.tap(find.text('Save'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.pumpAndSettle();
+        await settle(tester);
+        expect(tester.takeException(), isNull);
+        expect(find.text('QA'), findsOneWidget);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+        r.dispose();
+      },
+    );
+
     testWidgets('first time: at-bats only, nothing filled, two taps to a game',
         (tester) async {
       await me.ensureMe();

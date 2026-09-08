@@ -1,3 +1,4 @@
+import 'package:hacktracker/core/widgets/text_entry_sheet.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hacktracker/core/widgets/scorebook_surface.dart';
 import 'package:flutter/material.dart';
@@ -120,64 +121,44 @@ class CompetitionsScreen extends ConsumerWidget {
     String teamId, {
     Competition? existing,
   }) async {
-    final name = TextEditingController(text: existing?.name ?? '');
-    final league = TextEditingController(text: existing?.leagueName ?? '');
     var type = existing?.type ?? 'season';
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setSt) {
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                context.themeSpacing.md,
-                context.themeSpacing.md,
-                context.themeSpacing.md,
-                MediaQuery.viewInsetsOf(ctx).bottom + context.themeSpacing.md,
+      useSafeArea: true,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setState) => TextEntrySheet(
+          header: SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'season', label: Text('Season')),
+              ButtonSegment(value: 'tournament', label: Text('Tournament')),
+            ],
+            selected: {type},
+            onSelectionChanged: (v) => setState(() => type = v.first),
+          ),
+          fields: [
+            TextEntryField(
+              'Name',
+              initial: existing?.name ?? '',
+              required: true,
+            ),
+            TextEntryField(
+              'League (optional)',
+              initial: existing?.leagueName ?? '',
+            ),
+          ],
+          onSave: (values) => ref
+              .read(trackerRepositoryProvider)
+              .upsertCompetition(
+                id: existing?.id,
+                teamId: teamId,
+                type: type,
+                name: values[0],
+                leagueName: values[1].isEmpty ? null : values[1],
+                location: existing?.location,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(value: 'season', label: Text('Season')),
-                      ButtonSegment(
-                        value: 'tournament',
-                        label: Text('Tournament'),
-                      ),
-                    ],
-                    selected: {type},
-                    onSelectionChanged: (s) => setSt(() => type = s.first),
-                  ),
-                  SizedBox(height: context.themeSpacing.sm),
-                  AppTextField(label: 'Name', controller: name),
-                  SizedBox(height: context.themeSpacing.sm),
-                  AppTextField(label: 'League (optional)', controller: league),
-                  SizedBox(height: context.themeSpacing.md),
-                  AppButton(
-                    label: 'Save',
-                    onPressed: () async {
-                      await ref
-                          .read(trackerRepositoryProvider)
-                          .upsertCompetition(
-                            id: existing?.id,
-                            teamId: teamId,
-                            type: type,
-                            name: name.text.trim(),
-                            leagueName: league.text.trim().isEmpty
-                                ? null
-                                : league.text.trim(),
-                          );
-                      if (ctx.mounted) Navigator.pop(ctx);
-                    },
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
+        ),
+      ),
     );
   }
 }

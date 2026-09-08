@@ -104,6 +104,9 @@ void main() {
       tester.getTopLeft(find.byKey(const Key('diamond'))) + geo(tester).home;
 
   Future<void> dragChip(WidgetTester tester, Offset by) async {
+    // Native safe-area insets can put the plate below the initial viewport.
+    await tester.ensureVisible(find.byKey(const Key('batter-chip')));
+    await tester.pumpAndSettle();
     await tester.dragFrom(home(tester), by);
     await settle(tester);
   }
@@ -160,8 +163,26 @@ void main() {
     final chip = tester.widget<AnimatedPositioned>(
       find.byKey(const Key('batter-chip')),
     );
-    expect(chip.left, closeTo(g.first.dx, 1));
-    expect(chip.top, closeTo(g.first.dy, 1));
+    final position = Offset(chip.left!, chip.top!);
+    double distanceToLeg(Offset a, Offset b) {
+      final leg = b - a;
+      final offset = position - a;
+      final progress =
+          ((offset.dx * leg.dx + offset.dy * leg.dy) / leg.distanceSquared)
+              .clamp(0.0, 1.0);
+      return (position - (a + leg * progress)).distance;
+    }
+
+    // Device frames need not land exactly at 240ms. The hitter must still be
+    // on the basepaths, never cutting straight across the diamond.
+    expect(
+      [
+        distanceToLeg(g.home, g.first),
+        distanceToLeg(g.first, g.second),
+      ].any((d) => d < 1),
+      isTrue,
+    );
+    expect((position - g.home).distance, greaterThan(20));
     expect(find.byKey(const Key('contact-field')), findsNothing);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('contact-field')), findsOneWidget);

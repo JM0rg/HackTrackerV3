@@ -14,7 +14,8 @@ class LineupScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final teamId = ref.watch(currentTeamIdProvider);
+    final game = ref.watch(gameStreamProvider(gameId));
+    final teamId = game.valueOrNull?.teamId;
     final players = teamId == null
         ? const AsyncValue<List<Player>>.data([])
         : ref.watch(playersStreamProvider(teamId));
@@ -33,7 +34,10 @@ class LineupScreen extends ConsumerWidget {
                   icon: Icons.person_add_alt,
                   title: 'No players yet',
                   actionLabel: 'Add a player',
-                  onAction: () => context.push('/players'),
+                  onAction: () {
+                    ref.read(currentTeamIdProvider.notifier).state = teamId;
+                    context.push('/players');
+                  },
                 );
               }
               return Column(
