@@ -563,196 +563,246 @@ class _OneCardDiamondState extends State<OneCardDiamond>
         ? g.home
         : Offset.lerp(path[leg], path[leg + 1], progress - leg)!;
     final chipPos = _review ? running : (_drag ?? _settleTarget ?? g.home);
-    if (_review && _run.isCompleted) {
-      return TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0, end: 1),
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 180),
-        builder: (context, value, child) =>
-            Opacity(opacity: value, child: child),
-        child: _reviewPanel(context),
-      );
-    }
+    final reviewing = _review && _run.isCompleted;
+    final capture =
+        reviewing &&
+        widget.trackLocation &&
+        _pending!.result != PaResult.walk &&
+        _pending!.result != PaResult.strikeout;
     final chipLabel = state.personal ? 'You' : (batter?.firstName ?? '');
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (_failedPlay != null)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Flexible(
-                child: Text(
-                  'Play not saved.',
-                  style: context.text.bodySmall?.copyWith(color: field.on),
-                ),
-              ),
-              TextButton(
-                onPressed: () => _file(_failedPlay!),
-                child: const Text('Retry'),
-              ),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _failedPlay = null;
-                    _settleTarget = null;
-                    _settleHidden = false;
-                  });
-                  widget.onPendingChanged(false);
-                  unawaited(
-                    _persistDraft(clear: true).catchError((Object _) {}),
-                  );
-                },
-                child: const Text('Cancel'),
-              ),
-            ],
-          ),
-        GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onPanStart: _onPanStart,
-          onPanUpdate: _onPanUpdate,
-          onPanEnd: (_) => _onPanEnd(),
-          onPanCancel: () => setState(() {
-            _drag = null;
-            _zone = null;
-          }),
-          child: SizedBox(
-            key: const Key('diamond'),
-            width: g.width,
-            height: g.height,
-            child: Stack(
-              clipBehavior: Clip.none,
+    return SizedBox(
+      width: double.infinity,
+      height: widget.reviewHeight.clamp(g.height + 220, double.infinity),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_failedPlay != null)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _LinesPainter(
-                      geometry: g,
-                      palette: field,
-                      fenceHot: _zone == DiamondZone.homeRun,
-                    ),
+                Flexible(
+                  child: Text(
+                    'Play not saved.',
+                    style: context.text.bodySmall?.copyWith(color: field.on),
                   ),
                 ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  child: Center(
-                    child: Text(
-                      'FENCE',
-                      style: context.text.labelSmall?.copyWith(
-                        fontSize: 9.5,
-                        letterSpacing: 2.2,
-                        color: _zone == DiamondZone.homeRun
-                            ? field.accent
-                            : field.lineStrong,
-                      ),
-                    ),
-                  ),
+                TextButton(
+                  onPressed: () => _file(_failedPlay!),
+                  child: const Text('Retry'),
                 ),
-                // Over the fence: tap to file a home run.
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  height: 46 * g.scale,
-                  child: GestureDetector(
-                    key: const Key('zone-homeRun'),
-                    behavior: HitTestBehavior.translucent,
-                    onTap: tapsAllowed
-                        ? () => _start(DiamondZone.homeRun)
-                        : null,
-                  ),
-                ),
-                for (final (zone, number) in const [
-                  (DiamondZone.first, 1),
-                  (DiamondZone.second, 2),
-                  (DiamondZone.third, 3),
-                ])
-                  _BaseMarker(
-                    key: Key('zone-${zone.name}'),
-                    at: g.base(number),
-                    scale: g.scale,
-                    hot: _zone == zone,
-                    occupied: state.replay.bases.at(number) != null,
-                    label: const [
-                      'Single or reach first',
-                      'Double',
-                      'Triple',
-                    ][number - 1],
-                    onTap: tapsAllowed ? () => _start(zone) : null,
-                  ),
-                _Plate(at: g.home, scale: g.scale),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: -6 * g.scale,
-                  child: Center(
-                    child: Text(
-                      'OUT',
-                      style: context.text.labelSmall?.copyWith(
-                        fontSize: 9.5,
-                        letterSpacing: 2.2,
-                        color: _zone == DiamondZone.out
-                            ? field.onOut
-                            : Colors.transparent,
-                      ),
-                    ),
-                  ),
-                ),
-                if (!state.personal)
-                  for (final slot in state.slots)
-                    _RunnerChip(
-                      key: Key('runner-${slot.playerId}'),
-                      name: state.playerById(slot.playerId)?.firstName ?? '',
-                      base: _baseOf[slot.playerId] ?? 0,
-                      instant: _justArrived.contains(slot.playerId),
-                      geometry: g,
-                      onTap: tapsAllowed
-                          ? () => _sendRunner(slot.playerId)
-                          : null,
-                    ),
-                AnimatedPositioned(
-                  key: const Key('batter-chip'),
-                  duration:
-                      _review ||
-                          dragging ||
-                          MediaQuery.disableAnimationsOf(context)
-                      ? Duration.zero
-                      : const Duration(milliseconds: 420),
-                  curve: Curves.easeOutCubic,
-                  left: chipPos.dx,
-                  top: chipPos.dy,
-                  child: IgnorePointer(
-                    child: FractionalTranslation(
-                      translation: const Offset(-0.5, -0.5),
-                      child: TweenAnimationBuilder<double>(
-                        key: ValueKey('chip-$_chipEpoch'),
-                        tween: Tween(begin: 0, end: 1),
-                        duration: MediaQuery.disableAnimationsOf(context)
-                            ? Duration.zero
-                            : const Duration(milliseconds: 280),
-                        builder: (context, fade, child) => Opacity(
-                          opacity: _settleHidden ? 0 : fade,
-                          child: child,
-                        ),
-                        child: _BatterChip(
-                          label: chipLabel,
-                          jersey: state.personal ? null : batter?.jerseyNumber,
-                          dragging: dragging,
-                          enabled: widget.enabled,
-                        ),
-                      ),
-                    ),
-                  ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _failedPlay = null;
+                      _settleTarget = null;
+                      _settleHidden = false;
+                    });
+                    widget.onPendingChanged(false);
+                    unawaited(
+                      _persistDraft(clear: true).catchError((Object _) {}),
+                    );
+                  },
+                  child: const Text('Cancel'),
                 ),
               ],
             ),
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onPanStart: _onPanStart,
+            onPanUpdate: _onPanUpdate,
+            onPanEnd: (_) => _onPanEnd(),
+            onPanCancel: () => setState(() {
+              _drag = null;
+              _zone = null;
+            }),
+            child: SizedBox(
+              key: const Key('diamond'),
+              width: g.width,
+              height: g.height,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _LinesPainter(
+                        geometry: g,
+                        palette: field,
+                        fenceHot: _zone == DiamondZone.homeRun,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    child: Center(
+                      child: Text(
+                        'FENCE',
+                        style: context.text.labelSmall?.copyWith(
+                          fontSize: 9.5,
+                          letterSpacing: 2.2,
+                          color: _zone == DiamondZone.homeRun
+                              ? field.accent
+                              : field.lineStrong,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Over the fence: tap to file a home run.
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    height: 46 * g.scale,
+                    child: GestureDetector(
+                      key: const Key('zone-homeRun'),
+                      behavior: HitTestBehavior.translucent,
+                      onTap: tapsAllowed
+                          ? () => _start(DiamondZone.homeRun)
+                          : null,
+                    ),
+                  ),
+                  for (final (zone, number) in const [
+                    (DiamondZone.first, 1),
+                    (DiamondZone.second, 2),
+                    (DiamondZone.third, 3),
+                  ])
+                    _BaseMarker(
+                      key: Key('zone-${zone.name}'),
+                      at: g.base(number),
+                      scale: g.scale,
+                      hot: _zone == zone,
+                      occupied: state.replay.bases.at(number) != null,
+                      label: const [
+                        'Single or reach first',
+                        'Double',
+                        'Triple',
+                      ][number - 1],
+                      onTap: tapsAllowed ? () => _start(zone) : null,
+                    ),
+                  _Plate(at: g.home, scale: g.scale),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: -6 * g.scale,
+                    child: Center(
+                      child: Text(
+                        'OUT',
+                        style: context.text.labelSmall?.copyWith(
+                          fontSize: 9.5,
+                          letterSpacing: 2.2,
+                          color: _zone == DiamondZone.out
+                              ? field.onOut
+                              : Colors.transparent,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (!state.personal)
+                    for (final slot in state.slots)
+                      _RunnerChip(
+                        key: Key('runner-${slot.playerId}'),
+                        name: state.playerById(slot.playerId)?.firstName ?? '',
+                        base: _baseOf[slot.playerId] ?? 0,
+                        instant: _justArrived.contains(slot.playerId),
+                        geometry: g,
+                        onTap: tapsAllowed
+                            ? () => _sendRunner(slot.playerId)
+                            : null,
+                      ),
+                  if (capture)
+                    Positioned.fill(
+                      child: ContactField(
+                        geometry: ContactFieldGeometry(
+                          Size(g.width, g.height),
+                          origin: g.home,
+                          fieldRadius: g.home.dy - 14 * g.scale,
+                        ),
+                        drawSurface: false,
+                        showLabels: false,
+                        fieldMode: true,
+                        location: _location,
+                        onLocation: _saving
+                            ? null
+                            : (v) => _edit(
+                                () => _location = v.withDetails(
+                                  flight: _location?.flight,
+                                  bats: _location?.bats,
+                                ),
+                              ),
+                      ),
+                    ),
+                  AnimatedPositioned(
+                    key: const Key('batter-chip'),
+                    duration:
+                        _review ||
+                            dragging ||
+                            MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 420),
+                    curve: Curves.easeOutCubic,
+                    left: chipPos.dx,
+                    top: chipPos.dy,
+                    child: IgnorePointer(
+                      child: FractionalTranslation(
+                        translation: const Offset(-0.5, -0.5),
+                        child: TweenAnimationBuilder<double>(
+                          key: ValueKey('chip-$_chipEpoch'),
+                          tween: Tween(begin: 0, end: 1),
+                          duration: MediaQuery.disableAnimationsOf(context)
+                              ? Duration.zero
+                              : const Duration(milliseconds: 280),
+                          builder: (context, fade, child) => Opacity(
+                            opacity: _settleHidden ? 0 : fade,
+                            child: child,
+                          ),
+                          child: _BatterChip(
+                            label: chipLabel,
+                            jersey: state.personal
+                                ? null
+                                : batter?.jerseyNumber,
+                            dragging: dragging,
+                            enabled: widget.enabled,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-        SizedBox(height: 40, child: Center(child: _followThrough(context))),
-      ],
+          SizedBox(
+            height: 40,
+            child: Center(
+              child: capture
+                  ? Text(
+                      'Tap the field to place or move the hit',
+                      style: context.text.bodySmall?.copyWith(
+                        color: field.accent,
+                      ),
+                    )
+                  : reviewing
+                  ? const SizedBox.shrink()
+                  : _followThrough(context),
+            ),
+          ),
+          if (reviewing)
+            Expanded(
+              child: TweenAnimationBuilder<double>(
+                key: const Key('review-reveal'),
+                tween: Tween(begin: 0, end: 1),
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
+                builder: (context, value, child) =>
+                    Opacity(opacity: value, child: child),
+                child: _reviewPanel(context),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -904,295 +954,273 @@ class _OneCardDiamondState extends State<OneCardDiamond>
     final field = context.colors.field;
     final batted = p.result != PaResult.walk && p.result != PaResult.strikeout;
     final needsKind = p.result == PaResult.out;
-    return SizedBox(
-      height: widget.reviewHeight,
-      child: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Hitter → $_destinationLabel',
-                    style: context.text.titleMedium?.copyWith(
-                      color: field.accent,
-                    ),
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Hitter → $_destinationLabel',
+                  style: context.text.titleMedium?.copyWith(
+                    color: field.accent,
                   ),
-                  if (widget.trackLocation && batted) ...[
-                    Text(
-                      'Where did the ball go?',
-                      style: context.text.titleLarge?.copyWith(color: field.on),
-                    ),
-                    ContactField(
-                      fieldMode: true,
-                      location: _location,
-                      onLocation: _saving
+                ),
+                if (widget.trackLocation && batted) ...[
+                  Text(
+                    'Where did the ball go?',
+                    style: context.text.titleLarge?.copyWith(color: field.on),
+                  ),
+                  Text(
+                    _location?.label ?? 'Location unknown · optional',
+                    style: context.text.bodySmall?.copyWith(color: field.muted),
+                  ),
+                  if (_location != null)
+                    TextButton(
+                      onPressed: _saving
                           ? null
-                          : (v) => _edit(
-                              () => _location = v.withDetails(
-                                flight: _location?.flight,
-                                bats: _location?.bats,
-                              ),
-                            ),
+                          : () => _edit(() => _location = null),
+                      child: const Text('Clear location'),
                     ),
-                    Text(
-                      _location?.label ?? 'Location unknown · optional',
-                      style: context.text.bodySmall?.copyWith(
-                        color: field.muted,
-                      ),
-                    ),
-                    if (_location != null)
-                      TextButton(
-                        onPressed: _saving
+                ],
+                const SizedBox(height: 8),
+                Text(
+                  'Result',
+                  style: context.text.labelLarge?.copyWith(color: field.on),
+                ),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    for (final result in [
+                      PaResult.single,
+                      PaResult.double,
+                      PaResult.triple,
+                      PaResult.homer,
+                      PaResult.walk,
+                      PaResult.out,
+                      PaResult.strikeout,
+                      PaResult.reachOnError,
+                      PaResult.fieldersChoice,
+                    ])
+                      ChoiceChip(
+                        checkmarkColor: field.accent,
+                        labelStyle: context.text.labelLarge?.copyWith(
+                          color: field.on,
+                        ),
+                        key: Key('result-${result.wire}'),
+                        label: Text(result.label),
+                        selected: p.result == result,
+                        onSelected: _saving
                             ? null
-                            : () => _edit(() => _location = null),
-                        child: const Text('Clear location'),
+                            : (_) => _edit(() {
+                                p.result = result;
+                                if (result != PaResult.out) p.outKind = null;
+                                if (result == PaResult.walk ||
+                                    result == PaResult.strikeout) {
+                                  _location = null;
+                                }
+                                if (widget.state.personal &&
+                                    result == PaResult.homer &&
+                                    (p.rbi ?? 0) < 1) {
+                                  p.rbi = 1;
+                                }
+                              }),
                       ),
                   ],
-                  const SizedBox(height: 8),
-                  Text(
-                    'Result',
-                    style: context.text.labelLarge?.copyWith(color: field.on),
-                  ),
+                ),
+                if (needsKind)
                   Wrap(
                     spacing: 6,
-                    runSpacing: 4,
                     children: [
-                      for (final result in [
-                        PaResult.single,
-                        PaResult.double,
-                        PaResult.triple,
-                        PaResult.homer,
-                        PaResult.walk,
-                        PaResult.out,
-                        PaResult.strikeout,
-                        PaResult.reachOnError,
-                        PaResult.fieldersChoice,
-                      ])
+                      for (final kind in OutKind.values)
                         ChoiceChip(
                           checkmarkColor: field.accent,
                           labelStyle: context.text.labelLarge?.copyWith(
                             color: field.on,
                           ),
-                          key: Key('result-${result.wire}'),
-                          label: Text(result.label),
-                          selected: p.result == result,
+                          key: Key('how-${kind.wire}'),
+                          label: Text(kind.label),
+                          selected: p.outKind == kind,
                           onSelected: _saving
                               ? null
-                              : (_) => _edit(() {
-                                  p.result = result;
-                                  if (result != PaResult.out) p.outKind = null;
-                                  if (result == PaResult.walk ||
-                                      result == PaResult.strikeout) {
-                                    _location = null;
-                                  }
-                                  if (widget.state.personal &&
-                                      result == PaResult.homer &&
-                                      (p.rbi ?? 0) < 1) {
-                                    p.rbi = 1;
-                                  }
-                                }),
+                              : (_) => _edit(() => p.outKind = kind),
                         ),
                     ],
                   ),
-                  if (needsKind)
-                    Wrap(
-                      spacing: 6,
-                      children: [
-                        for (final kind in OutKind.values)
-                          ChoiceChip(
-                            checkmarkColor: field.accent,
-                            labelStyle: context.text.labelLarge?.copyWith(
-                              color: field.on,
-                            ),
-                            key: Key('how-${kind.wire}'),
-                            label: Text(kind.label),
-                            selected: p.outKind == kind,
-                            onSelected: _saving
-                                ? null
-                                : (_) => _edit(() => p.outKind = kind),
+                if (widget.state.personal) ...[
+                  Text(
+                    'RBI',
+                    style: context.text.labelLarge?.copyWith(color: field.on),
+                  ),
+                  Wrap(
+                    spacing: 6,
+                    children: [
+                      for (var n = _minRbi(p.result); n <= 4; n++)
+                        ChoiceChip(
+                          checkmarkColor: field.accent,
+                          labelStyle: context.text.labelLarge?.copyWith(
+                            color: field.on,
                           ),
-                      ],
-                    ),
-                  if (widget.state.personal) ...[
-                    Text(
-                      'RBI',
-                      style: context.text.labelLarge?.copyWith(color: field.on),
-                    ),
-                    Wrap(
-                      spacing: 6,
-                      children: [
-                        for (var n = _minRbi(p.result); n <= 4; n++)
-                          ChoiceChip(
-                            checkmarkColor: field.accent,
-                            labelStyle: context.text.labelLarge?.copyWith(
-                              color: field.on,
-                            ),
-                            key: Key('rbi-$n'),
-                            label: Text('$n'),
-                            selected: p.rbi == n,
-                            onSelected: _saving
-                                ? null
-                                : (_) => _edit(() => p.rbi = n),
-                          ),
-                      ],
-                    ),
-                  ],
-                  if (widget.trackLocation && batted)
-                    ExpansionTile(
-                      title: const Text('Optional detail'),
-                      children: [
-                        Wrap(
-                          spacing: 6,
-                          children: [
-                            for (final region in ContactLocation.regions)
-                              ActionChip(
-                                label: Text(region),
-                                onPressed: _saving
-                                    ? null
-                                    : () => _edit(
-                                        () => _location = ContactLocation(
-                                          region: region,
-                                          flight: _location?.flight,
-                                          bats: _location?.bats,
-                                        ),
-                                      ),
-                              ),
-                          ],
+                          key: Key('rbi-$n'),
+                          label: Text('$n'),
+                          selected: p.rbi == n,
+                          onSelected: _saving
+                              ? null
+                              : (_) => _edit(() => p.rbi = n),
                         ),
+                    ],
+                  ),
+                ],
+                if (widget.trackLocation && batted)
+                  ExpansionTile(
+                    title: const Text('Optional detail'),
+                    children: [
+                      Wrap(
+                        spacing: 6,
+                        children: [
+                          for (final region in ContactLocation.regions)
+                            ActionChip(
+                              label: Text(region),
+                              onPressed: _saving
+                                  ? null
+                                  : () => _edit(
+                                      () => _location = ContactLocation(
+                                        region: region,
+                                        flight: _location?.flight,
+                                        bats: _location?.bats,
+                                      ),
+                                    ),
+                            ),
+                        ],
+                      ),
+                      Wrap(
+                        spacing: 6,
+                        children: [
+                          for (final flight in ContactLocation.flights)
+                            ChoiceChip(
+                              checkmarkColor: field.accent,
+                              labelStyle: context.text.labelLarge?.copyWith(
+                                color: field.on,
+                              ),
+                              label: Text(flight),
+                              selected: _location?.flight == flight,
+                              onSelected: _saving
+                                  ? null
+                                  : (selected) => _edit(
+                                      () => _location = ContactLocation(
+                                        x: _location?.x,
+                                        y: _location?.y,
+                                        region: _location?.region,
+                                        flight: selected ? flight : null,
+                                        bats: _location?.bats,
+                                      ),
+                                    ),
+                            ),
+                        ],
+                      ),
+                      if (widget.state.personal ||
+                          widget.state.settings.modules.contact)
                         Wrap(
                           spacing: 6,
                           children: [
-                            for (final flight in ContactLocation.flights)
+                            for (final quality in ['weak', 'medium', 'hard'])
                               ChoiceChip(
                                 checkmarkColor: field.accent,
                                 labelStyle: context.text.labelLarge?.copyWith(
                                   color: field.on,
                                 ),
-                                label: Text(flight),
-                                selected: _location?.flight == flight,
+                                label: Text(quality),
+                                selected: _quality == quality,
                                 onSelected: _saving
                                     ? null
                                     : (selected) => _edit(
-                                        () => _location = ContactLocation(
-                                          x: _location?.x,
-                                          y: _location?.y,
-                                          region: _location?.region,
-                                          flight: selected ? flight : null,
-                                          bats: _location?.bats,
-                                        ),
+                                        () => _quality = selected
+                                            ? quality
+                                            : null,
                                       ),
                               ),
                           ],
                         ),
-                        if (widget.state.personal ||
-                            widget.state.settings.modules.contact)
-                          Wrap(
-                            spacing: 6,
-                            children: [
-                              for (final quality in ['weak', 'medium', 'hard'])
-                                ChoiceChip(
-                                  checkmarkColor: field.accent,
-                                  labelStyle: context.text.labelLarge?.copyWith(
-                                    color: field.on,
-                                  ),
-                                  label: Text(quality),
-                                  selected: _quality == quality,
-                                  onSelected: _saving
-                                      ? null
-                                      : (selected) => _edit(
-                                          () => _quality = selected
-                                              ? quality
-                                              : null,
-                                        ),
-                                ),
-                            ],
-                          ),
-                        Text(
-                          'Batting side',
-                          style: context.text.labelLarge?.copyWith(
-                            color: field.on,
-                          ),
+                      Text(
+                        'Batting side',
+                        style: context.text.labelLarge?.copyWith(
+                          color: field.on,
                         ),
-                        Wrap(
-                          spacing: 6,
-                          children: [
-                            for (final side in ['left', 'right'])
-                              ChoiceChip(
-                                checkmarkColor: field.accent,
-                                labelStyle: context.text.labelLarge?.copyWith(
-                                  color: field.on,
-                                ),
-                                label: Text(side),
-                                selected:
-                                    (_location?.bats ??
-                                        widget.state.batter?.bats) ==
-                                    side,
-                                onSelected: _saving
-                                    ? null
-                                    : (_) => _edit(
-                                        () => _location =
-                                            (_location ??
-                                                    const ContactLocation())
-                                                .withDetails(bats: side),
-                                      ),
+                      ),
+                      Wrap(
+                        spacing: 6,
+                        children: [
+                          for (final side in ['left', 'right'])
+                            ChoiceChip(
+                              checkmarkColor: field.accent,
+                              labelStyle: context.text.labelLarge?.copyWith(
+                                color: field.on,
                               ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  if (_error != null)
-                    Text(
-                      _error!,
-                      style: context.text.bodySmall?.copyWith(
-                        color: field.onOut,
+                              label: Text(side),
+                              selected:
+                                  (_location?.bats ??
+                                      widget.state.batter?.bats) ==
+                                  side,
+                              onSelected: _saving
+                                  ? null
+                                  : (_) => _edit(
+                                      () => _location =
+                                          (_location ?? const ContactLocation())
+                                              .withDetails(bats: side),
+                                    ),
+                            ),
+                        ],
                       ),
-                    ),
-                  if (needsKind && p.outKind == null)
-                    Text(
-                      'Choose how the out was made',
-                      style: context.text.bodySmall?.copyWith(
-                        color: field.muted,
-                      ),
-                    ),
-                  const SizedBox(height: 12),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                FilledButton(
-                  key: const Key('save-play'),
-                  onPressed: _saving || (needsKind && p.outKind == null)
-                      ? null
-                      : () => _file(
-                          LoggedPlay(
-                            result: p.result,
-                            outKind: p.outKind,
-                            rbi: p.rbi,
-                            hitLocation: batted ? _location?.encode() : null,
-                            qualityOfContact: batted ? _quality : null,
-                          ),
-                        ),
-                  child: const Text('Save play'),
-                ),
-                TextButton(
-                  key: const Key('cancel-play'),
-                  onPressed: _saving ? null : _cancel,
-                  child: const Text('Cancel play'),
-                ),
+                    ],
+                  ),
+                if (_error != null)
+                  Text(
+                    _error!,
+                    style: context.text.bodySmall?.copyWith(color: field.onOut),
+                  ),
+                if (needsKind && p.outKind == null)
+                  Text(
+                    'Choose how the out was made',
+                    style: context.text.bodySmall?.copyWith(color: field.muted),
+                  ),
+                const SizedBox(height: 12),
               ],
             ),
           ),
-        ],
-      ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FilledButton(
+                key: const Key('save-play'),
+                onPressed: _saving || (needsKind && p.outKind == null)
+                    ? null
+                    : () => _file(
+                        LoggedPlay(
+                          result: p.result,
+                          outKind: p.outKind,
+                          rbi: p.rbi,
+                          hitLocation: batted ? _location?.encode() : null,
+                          qualityOfContact: batted ? _quality : null,
+                        ),
+                      ),
+                child: const Text('Save play'),
+              ),
+              TextButton(
+                key: const Key('cancel-play'),
+                onPressed: _saving ? null : _cancel,
+                child: const Text('Cancel play'),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

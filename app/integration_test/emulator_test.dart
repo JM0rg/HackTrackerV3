@@ -201,7 +201,9 @@ void main() {
       for (final point in [const Offset(-.2, .6), const Offset(.3, .7)]) {
         await t.ensureVisible(field);
         await t.pumpAndSettle();
-        final geometry = ContactFieldGeometry(t.getSize(field));
+        final geometry =
+            (t.widget<ContactField>(find.byType(ContactField)).geometry ??
+            ContactFieldGeometry(t.getSize(field)));
         await t.tapAt(t.getTopLeft(field) + geometry.point(point.dx, point.dy));
         await settle();
       }
@@ -272,8 +274,9 @@ void main() {
       await go('/');
       await tap(find.byKey(const Key('start-game')));
       await tap(find.byKey(const Key('start')));
-      final personalId =
-          t.widget<FieldModeScreen>(find.byType(FieldModeScreen)).gameId;
+      final personalId = t
+          .widget<FieldModeScreen>(find.byType(FieldModeScreen))
+          .gameId;
       await dragBase(2);
       expect(find.byKey(const Key('contact-field')), findsNothing);
       await tap(find.byKey(const Key('rbi-2')));
@@ -285,7 +288,9 @@ void main() {
       await tap(find.byType(Switch));
       await tap(find.text('Away'));
       await tap(find.byKey(const Key('start')));
-      final tallyId = t.widget<FieldModeScreen>(find.byType(FieldModeScreen)).gameId;
+      final tallyId = t
+          .widget<FieldModeScreen>(find.byType(FieldModeScreen))
+          .gameId;
       await tap(find.byKey(const Key('us-runs')));
       await dragBase(2);
       await tap(find.byKey(const Key('rbi-2')));

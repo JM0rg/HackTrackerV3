@@ -153,6 +153,8 @@ void main() {
   ) async {
     final id = await teamGame();
     await pump(tester, id, premium: true);
+    final diamondRect = tester.getRect(find.byKey(const Key('diamond')));
+    final diamondElement = tester.element(find.byKey(const Key('diamond')));
     await tester.tap(find.byKey(const Key('zone-second')));
     await tester.pump();
     expect(find.byKey(const Key('save-play')), findsNothing);
@@ -186,6 +188,12 @@ void main() {
     expect(find.byKey(const Key('contact-field')), findsNothing);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('contact-field')), findsOneWidget);
+    expect(
+      tester.element(find.byKey(const Key('diamond'))),
+      same(diamondElement),
+    );
+    expect(tester.getRect(find.byKey(const Key('diamond'))), diamondRect);
+    expect(find.byKey(const Key('review-reveal')), findsOneWidget);
     expect(await scoring.plateAppearances(id), isEmpty);
     await finish(tester);
   });
@@ -203,7 +211,9 @@ void main() {
       Future<void> locate(double x, double y) async {
         await tester.ensureVisible(field);
         await tester.pumpAndSettle();
-        final g = ContactFieldGeometry(tester.getSize(field));
+        final g =
+            (tester.widget<ContactField>(find.byType(ContactField)).geometry ??
+            ContactFieldGeometry(tester.getSize(field)));
         await tester.tapAt(tester.getTopLeft(field) + g.point(x, y));
         await settle(tester);
       }
@@ -242,7 +252,9 @@ void main() {
       await tester.ensureVisible(field);
       await tester.tapAt(
         tester.getTopLeft(field) +
-            ContactFieldGeometry(tester.getSize(field)).point(.2, .6),
+            (tester.widget<ContactField>(find.byType(ContactField)).geometry ??
+                    ContactFieldGeometry(tester.getSize(field)))
+                .point(.2, .6),
       );
       await settle(tester);
       await tap(tester, find.byKey(const Key('result-walk')));
@@ -275,7 +287,9 @@ void main() {
       await tester.ensureVisible(field);
       await tester.tapAt(
         tester.getTopLeft(field) +
-            ContactFieldGeometry(tester.getSize(field)).point(.2, .6),
+            (tester.widget<ContactField>(find.byType(ContactField)).geometry ??
+                    ContactFieldGeometry(tester.getSize(field)))
+                .point(.2, .6),
       );
       await settle(tester);
       await finish(tester);

@@ -142,7 +142,8 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
     final textScale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0);
     final premium = ref.watch(locationTrackingProvider);
     final contact = _contactMode(premium);
-    final compact = contact || _awaitingAnswer;
+    // Keep header and field geometry stable while a play is reviewed.
+    final compact = contact;
     final heroHeight = state.tracksScore
         ? (compact ? 100.0 : _hero) * textScale
         : 0.0;
@@ -162,9 +163,7 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
         // compressing the scoring controls.
         final contentHeight = math.max(
           constraints.maxHeight,
-          _awaitingAnswer && !contact
-              ? _topRow + heroHeight + cardHeight + _lastLine + _nextUp + 320
-              : (contact ? 820 : 828) * textScale,
+          (contact ? 820 : 828) * textScale,
         );
         final spare =
             contentHeight -
@@ -177,9 +176,9 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
             spacing.md * 2 -
             64 - // Retry row and the field panel's insets.
             (state.hasLineup ? 0 : 48);
-        final byHeight = spare * 280 / 240;
-        final byWidth = constraints.maxWidth - spacing.md * 2;
-        final width = math.min(byHeight, byWidth).clamp(190.0, 360.0);
+        final byHeight = (spare - 180) * 280 / 240;
+        final byWidth = constraints.maxWidth - 34;
+        final width = math.min(byHeight, byWidth).clamp(190.0, 280.0);
         final geometry = FieldGeometry(width);
 
         return SingleChildScrollView(
