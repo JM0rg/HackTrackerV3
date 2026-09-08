@@ -34,6 +34,11 @@ env_get() {
 SUPABASE_URL="$(env_get SUPABASE_URL)"
 SUPABASE_ANON_KEY="$(env_get SUPABASE_ANON_KEY)"
 
+if [[ -n "$SUPABASE_URL" && "$SUPABASE_URL" != "https://uzyfohclwmkrqlfnlxxw.supabase.co" && "$SUPABASE_URL" != "https://uzyfohclwmkrqlfnlxxw.supabase.co/" ]]; then
+  echo "Refusing to launch: SUPABASE_URL must target HackTracker (uzyfohclwmkrqlfnlxxw)." >&2
+  exit 1
+fi
+
 DEFINES=()
 if [[ -n "$SUPABASE_URL" ]]; then
   DEFINES+=(--dart-define=SUPABASE_URL="$SUPABASE_URL")

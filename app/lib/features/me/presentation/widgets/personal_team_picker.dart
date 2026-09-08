@@ -36,12 +36,6 @@ class _PickerSheet extends ConsumerWidget {
             const _Grabber(),
             SizedBox(height: spacing.md),
             Text('Playing with', style: context.text.titleMedium),
-            Text(
-              teams.isEmpty
-                  ? 'Save the teams you play with to fill this in next time.'
-                  : 'Pick one to fill in the name. Swipe a team to forget it.',
-              style: context.text.bodySmall,
-            ),
             SizedBox(height: spacing.sm),
             if (teams.isNotEmpty)
               ConstrainedBox(
@@ -69,7 +63,7 @@ class _PickerSheet extends ConsumerWidget {
                       confirmDismiss: (_) => confirmAction(
                         context,
                         title: 'Forget ${team.name}?',
-                        body: 'Games you already tagged keep the name.',
+                        body: 'Games already tagged keep the name.',
                       ),
                       onDismissed: (_) =>
                           ref.read(meRepositoryProvider).deletePersonalTeam(team.id),
@@ -157,10 +151,6 @@ class _AddTeamSheetState extends ConsumerState<_AddTeamSheet> {
           const _Grabber(),
           SizedBox(height: spacing.md),
           Text('New team', style: context.text.titleMedium),
-          Text(
-            'Just a name to tag your games with.',
-            style: context.text.bodySmall,
-          ),
           SizedBox(height: spacing.md),
           AppTextField(
             key: const Key('new-team-name'),

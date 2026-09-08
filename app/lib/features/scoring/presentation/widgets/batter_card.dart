@@ -51,9 +51,12 @@ class _BatterCardState extends State<BatterCard> {
     final state = widget.state;
     final batter = state.batter;
     final pull = Offset(_offset.dx * 0.6, _offset.dy.clamp(0, 400) * 0.5);
-    final fade = 1 -
-        ((_offset.dx.abs() / 300) + (_offset.dy.clamp(0, 400) / 300))
-            .clamp(0.0, 0.5);
+    final fade =
+        1 -
+        ((_offset.dx.abs() / 300) + (_offset.dy.clamp(0, 400) / 300)).clamp(
+          0.0,
+          0.5,
+        );
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -64,7 +67,9 @@ class _BatterCardState extends State<BatterCard> {
       child: SizedBox(
         height: widget.height,
         child: AnimatedContainer(
-          duration: _swiping ? Duration.zero : const Duration(milliseconds: 200),
+          duration: _swiping
+              ? Duration.zero
+              : const Duration(milliseconds: 200),
           curve: Curves.easeOut,
           transform: Matrix4.translationValues(pull.dx, pull.dy, 0),
           child: Opacity(
@@ -271,7 +276,10 @@ class _DayLine extends StatelessWidget {
       if (runs != null && (splitCounts || runs! > 0))
         '$runs run${runs == 1 ? '' : 's'}',
     ];
-    final muted = context.text.bodyMedium?.copyWith(color: field.muted, fontSize: 13.5);
+    final muted = context.text.bodyMedium?.copyWith(
+      color: field.muted,
+      fontSize: 13.5,
+    );
 
     final main = Row(
       mainAxisSize: MainAxisSize.min,

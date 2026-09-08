@@ -14,7 +14,11 @@ class CompetitionsScreen extends ConsumerWidget {
     if (teamId == null) {
       return const AppScaffold(
         title: 'Seasons & tournaments',
-        body: Center(child: Text('Create a team first.')),
+        body: EmptyState(
+          icon: Icons.groups_outlined,
+          title: 'No team yet',
+          message: 'Seasons and tournaments belong to a team.',
+        ),
       );
     }
     final rows = ref.watch(competitionsStreamProvider(teamId));
@@ -25,16 +29,23 @@ class CompetitionsScreen extends ConsumerWidget {
         child: const Icon(Icons.add),
       ),
       body: rows.when(
-        data: (list) => ListView(
-          children: [
-            for (final c in list)
-              ListTile(
-                title: Text(c.name),
-                subtitle: Text(c.type == 'tournament' ? 'Tournament' : 'Season'),
-                onTap: () => _edit(context, ref, teamId, existing: c),
+        data: (list) => list.isEmpty
+            ? EmptyState(
+                icon: Icons.emoji_events_outlined,
+                title: 'No seasons yet',
+                actionLabel: 'Add a season',
+                onAction: () => _edit(context, ref, teamId),
+              )
+            : ListView(
+                children: [
+                  for (final c in list)
+                    ListTile(
+                      title: Text(c.name),
+                      subtitle: Text(c.type == 'tournament' ? 'Tournament' : 'Season'),
+                      onTap: () => _edit(context, ref, teamId, existing: c),
+                    ),
+                ],
               ),
-          ],
-        ),
         loading: () => const SizedBox.shrink(),
         error: (e, _) => Text('$e'),
       ),

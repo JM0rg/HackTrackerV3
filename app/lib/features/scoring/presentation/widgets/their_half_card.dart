@@ -90,11 +90,15 @@ class _TheirHalfCardState extends State<TheirHalfCard> {
                       padding: EdgeInsets.zero,
                       shape: const CircleBorder(),
                       foregroundColor: field.onOut,
-                      side: BorderSide(color: field.onOut.withValues(alpha: 0.4)),
+                      side: BorderSide(
+                        color: field.onOut.withValues(alpha: 0.4),
+                      ),
                     ),
                     child: Text(
                       '−',
-                      style: context.text.titleLarge?.copyWith(color: field.onOut),
+                      style: context.text.titleLarge?.copyWith(
+                        color: field.onOut,
+                      ),
                     ),
                   ),
                 ),

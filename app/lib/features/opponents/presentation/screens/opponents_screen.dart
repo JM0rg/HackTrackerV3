@@ -12,7 +12,14 @@ class OpponentsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final teamId = ref.watch(currentTeamIdProvider);
     if (teamId == null) {
-      return const AppScaffold(title: 'Opponents', body: Center(child: Text('Create a team first.')));
+      return const AppScaffold(
+        title: 'Opponents',
+        body: EmptyState(
+          icon: Icons.groups_outlined,
+          title: 'No team yet',
+          message: 'Opponents belong to a team.',
+        ),
+      );
     }
     final rows = ref.watch(opponentsStreamProvider(teamId));
     return AppScaffold(
@@ -22,15 +29,22 @@ class OpponentsScreen extends ConsumerWidget {
         child: const Icon(Icons.add),
       ),
       body: rows.when(
-        data: (list) => ListView(
-          children: [
-            for (final o in list)
-              ListTile(
-                title: Text(o.name),
-                onTap: () => _edit(context, ref, teamId, existing: o),
+        data: (list) => list.isEmpty
+            ? EmptyState(
+                icon: Icons.shield_outlined,
+                title: 'No opponents saved',
+                actionLabel: 'Add an opponent',
+                onAction: () => _edit(context, ref, teamId),
+              )
+            : ListView(
+                children: [
+                  for (final o in list)
+                    ListTile(
+                      title: Text(o.name),
+                      onTap: () => _edit(context, ref, teamId, existing: o),
+                    ),
+                ],
               ),
-          ],
-        ),
         loading: () => const SizedBox.shrink(),
         error: (e, _) => Text('$e'),
       ),

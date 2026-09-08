@@ -6,6 +6,9 @@ import 'package:hacktracker/core/di/repository_providers.dart';
 import 'package:hacktracker/core/theme/theme_context_extensions.dart';
 import 'package:hacktracker/core/widgets/app_widgets.dart';
 import 'package:hacktracker/database/app_database.dart';
+import 'package:hacktracker/features/games/presentation/widgets/live_card.dart';
+import 'package:hacktracker/features/games/presentation/widgets/start_sheet.dart';
+import 'package:intl/intl.dart';
 
 class TeamHomeScreen extends ConsumerWidget {
   const TeamHomeScreen({super.key});
@@ -14,18 +17,28 @@ class TeamHomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final teams = ref.watch(teamsStreamProvider);
     return AppScaffold(
-      title: 'Team',
+      title: 'Teams',
+      actions: [
+        IconButton(
+          tooltip: 'Create a team',
+          onPressed: () => context.push('/team/edit'),
+          icon: const Icon(Icons.add_rounded),
+        ),
+      ],
       body: teams.when(
         data: (list) {
           if (list.isEmpty) {
             return EmptyState(
-              title: 'No team yet.',
-              message: 'Optional. Create one when you want to score a full lineup.',
-              actionLabel: 'New team',
+              icon: Icons.groups_outlined,
+              title: 'No team yet',
+              actionLabel: 'Create a team',
               onAction: () => context.push('/team/edit'),
             );
           }
-          final teamId = ref.watch(currentTeamIdProvider) ?? list.first.id;
+          final selected = ref.watch(currentTeamIdProvider);
+          final teamId = list.any((t) => t.id == selected)
+              ? selected!
+              : list.first.id;
           return _TeamHome(teamId: teamId, teams: list);
         },
         loading: () => const Center(child: SizedBox.shrink()),
@@ -43,6 +56,7 @@ class _TeamHome extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final games = ref.watch(gamesStreamProvider(teamId));
+    final live = ref.watch(teamLiveGameProvider(teamId));
     final s = context.themeSpacing;
     return ListView(
       padding: EdgeInsets.all(s.md),
@@ -54,12 +68,18 @@ class _TeamHome extends ConsumerWidget {
             for (final t in teams)
               DropdownMenuItem(value: t.id, child: Text(t.name)),
           ],
-          onChanged: (id) => ref.read(currentTeamIdProvider.notifier).state = id,
+          onChanged: (id) =>
+              ref.read(currentTeamIdProvider.notifier).state = id,
         ),
+        if (live != null) ...[SizedBox(height: s.md), LiveCard(game: live)],
         SizedBox(height: s.md),
         AppButton(
+          key: const Key('start-game'),
           label: 'Start a game',
-          onPressed: () => context.push('/games/new'),
+          onPressed: () async {
+            final id = await showStartSheet(context, teamId: teamId);
+            if (id != null && context.mounted) context.push('/games/$id');
+          },
         ),
         SizedBox(height: s.md),
         Wrap(
@@ -79,27 +99,55 @@ class _TeamHome extends ConsumerWidget {
         games.when(
           data: (list) {
             if (list.isEmpty) {
-              return const Text('No games yet.');
+              return Padding(
+                padding: EdgeInsets.only(top: s.sm),
+                child: Text(
+                  'No games yet.',
+                  style: context.text.bodyMedium?.copyWith(
+                    color: context.colors.muted,
+                  ),
+                ),
+              );
             }
             return Column(
               children: [
                 for (final g in list)
-                  Padding(
-                    padding: EdgeInsets.only(bottom: s.sm),
-                    child: AppCard(
-                      onTap: () => context.push('/games/${g.id}'),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${g.status.toUpperCase()}  ${g.ourRuns}–${g.theirRuns}',
+                  if (g.id != live?.id)
+                    Padding(
+                      padding: EdgeInsets.only(bottom: s.sm),
+                      child: AppCard(
+                        onTap: () => context.push('/games/${g.id}'),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 44,
+                              child: Text(
+                                g.startsAt == null
+                                    ? ''
+                                    : DateFormat(
+                                        'MMM\nd',
+                                      ).format(g.startsAt!).toUpperCase(),
+                                style: context.text.labelSmall?.copyWith(
+                                  height: 1.2,
+                                ),
+                              ),
                             ),
-                          ),
-                          Text(g.park ?? ''),
-                        ],
+                            Expanded(
+                              child: Text(
+                                g.status == 'final'
+                                    ? '${g.ourRuns > g.theirRuns
+                                          ? 'Won'
+                                          : g.ourRuns < g.theirRuns
+                                          ? 'Lost'
+                                          : 'Tied'} ${g.ourRuns}–${g.theirRuns}'
+                                    : g.status,
+                              ),
+                            ),
+                            Text(g.park ?? '', style: context.text.bodySmall),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
               ],
             );
           },

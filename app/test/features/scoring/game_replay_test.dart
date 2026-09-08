@@ -109,15 +109,18 @@ void main() {
       expect(state.innings.first.theirRuns, 1);
     });
 
-    test('an open opponent tally shows in the score before it is committed', () {
-      final state = run([theirs(1), pa('p1', PaResult.out)], openTally: 3);
-      expect(state.weBat, isTrue);
-      // We are still batting, so the open tally is not counted yet.
-      expect(state.theirRuns, 1);
+    test(
+      'an open opponent tally shows in the score before it is committed',
+      () {
+        final state = run([theirs(1), pa('p1', PaResult.out)], openTally: 3);
+        expect(state.weBat, isTrue);
+        // We are still batting, so the open tally is not counted yet.
+        expect(state.theirRuns, 1);
 
-      final theirTurn = run([theirs(1)], openTally: 0);
-      expect(theirTurn.theirRuns, 1);
-    });
+        final theirTurn = run([theirs(1)], openTally: 0);
+        expect(theirTurn.theirRuns, 1);
+      },
+    );
   });
 
   group('innings, away team', () {
@@ -152,6 +155,29 @@ void main() {
     });
   });
 
+  test('scoreless completed innings remain in the line score', () {
+    final state = run([
+      theirs(0),
+      pa('p1', PaResult.out),
+      pa('p2', PaResult.out),
+      pa('p3', PaResult.out),
+    ]);
+    expect(state.innings.length, 1);
+    expect(state.innings.single.ourRuns, 0);
+    expect(state.innings.single.theirRuns, 0);
+  });
+
+  test('run credits follow each trip around the bases', () {
+    final state = run([
+      theirs(0),
+      pa('p1', PaResult.single),
+      pa('p2', PaResult.homer),
+      pa('p1', PaResult.single),
+    ]);
+    expect(state.pas.map((p) => p.runsScored), [1, 1, 0]);
+    expect(state.ourRuns, 2);
+  });
+
   group('plays', () {
     test('runs and RBI accumulate across an inning', () {
       final state = run([
@@ -170,13 +196,16 @@ void main() {
       expect(state.nextBatterIndex, 2);
     });
 
-    test('a play logged while they bat closes their half rather than dropping', () {
-      final state = run([pa('p1', PaResult.single)]);
-      expect(state.weBat, isTrue);
-      expect(state.inning, 1);
-      expect(state.pas.single.inning, 1);
-      expect(state.pas.single.half, 'bottom');
-    });
+    test(
+      'a play logged while they bat closes their half rather than dropping',
+      () {
+        final state = run([pa('p1', PaResult.single)]);
+        expect(state.weBat, isTrue);
+        expect(state.inning, 1);
+        expect(state.pas.single.inning, 1);
+        expect(state.pas.single.half, 'bottom');
+      },
+    );
 
     test('the home run limit turns extra home runs into outs', () {
       const rules = TeamRules(hrLimit: 1);
@@ -203,11 +232,13 @@ void main() {
       expect(away.half, 'top');
     });
 
-    test('our half ends by hand and carries teammate runs', () {
-      final state = run([
-        pa('me', PaResult.double, runs: 1),
-        ours(2),
-      ], personal: true, score: true, home: false);
+    test('our half total is independent of personal RBI', () {
+      final state = run(
+        [pa('me', PaResult.double, runs: 1), ours(3)],
+        personal: true,
+        score: true,
+        home: false,
+      );
       expect(state.ourRuns, 3);
       expect(state.weBat, isFalse);
       expect(state.inning, 1);
@@ -215,12 +246,17 @@ void main() {
     });
 
     test('a full inning each way, with a line score', () {
-      final state = run([
-        pa('me', PaResult.homer, runs: 2),
-        ours(1),
-        theirs(4),
-        pa('me', PaResult.out),
-      ], personal: true, score: true, home: false);
+      final state = run(
+        [
+          pa('me', PaResult.homer, runs: 2),
+          ours(3),
+          theirs(4),
+          pa('me', PaResult.out),
+        ],
+        personal: true,
+        score: true,
+        home: false,
+      );
       expect(state.inning, 2);
       expect(state.weBat, isTrue);
       expect(state.ourRuns, 3);
@@ -232,16 +268,35 @@ void main() {
     });
 
     test('open tallies count for whoever is batting', () {
-      final us = run(const [], personal: true, score: true, home: false, ourTally: 2, openTally: 9);
+      final us = run(
+        const [],
+        personal: true,
+        score: true,
+        home: false,
+        ourTally: 2,
+        openTally: 9,
+      );
       expect(us.ourRuns, 2);
       expect(us.theirRuns, 0);
-      final them = run(const [], personal: true, score: true, home: true, ourTally: 9, openTally: 3);
+      final them = run(
+        const [],
+        personal: true,
+        score: true,
+        home: true,
+        ourTally: 9,
+        openTally: 3,
+      );
       expect(them.theirRuns, 3);
       expect(them.ourRuns, 0);
     });
 
     test('an at-bat logged while they bat closes their half', () {
-      final state = run([pa('me', PaResult.single)], personal: true, score: true, home: true);
+      final state = run(
+        [pa('me', PaResult.single)],
+        personal: true,
+        score: true,
+        home: true,
+      );
       expect(state.weBat, isTrue);
       expect(state.pas.single.inning, 1);
       expect(state.pas.single.half, 'bottom');

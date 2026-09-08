@@ -97,17 +97,23 @@ final gameTeamProvider = Provider.family<Team?, String?>((ref, teamId) {
   return null;
 });
 
-final fieldModeProvider =
-    Provider.family<AsyncValue<FieldModeState?>, String>((ref, gameId) {
+final fieldModeProvider = Provider.family<AsyncValue<FieldModeState?>, String>((
+  ref,
+  gameId,
+) {
   final gameAsync = ref.watch(gameStreamProvider(gameId));
   final slotsAsync = ref.watch(lineupStreamProvider(gameId));
   final rosterAsync = ref.watch(gamePlayersStreamProvider(gameId));
   final pasAsync = ref.watch(paStreamProvider(gameId));
   final eventsAsync = ref.watch(gameEventsStreamProvider(gameId));
 
-  final error = [gameAsync, slotsAsync, rosterAsync, pasAsync, eventsAsync]
-      .where((a) => a.hasError)
-      .firstOrNull;
+  final error = [
+    gameAsync,
+    slotsAsync,
+    rosterAsync,
+    pasAsync,
+    eventsAsync,
+  ].where((a) => a.hasError).firstOrNull;
   if (error != null) {
     return AsyncValue.error(error.error!, error.stackTrace ?? StackTrace.empty);
   }
@@ -117,7 +123,11 @@ final fieldModeProvider =
   final roster = rosterAsync.valueOrNull;
   final pas = pasAsync.valueOrNull;
   final events = eventsAsync.valueOrNull;
-  if (game == null || slots == null || roster == null || pas == null || events == null) {
+  if (game == null ||
+      slots == null ||
+      roster == null ||
+      pas == null ||
+      events == null) {
     if (gameAsync.hasValue && gameAsync.valueOrNull == null) {
       return const AsyncValue.data(null);
     }
@@ -125,32 +135,38 @@ final fieldModeProvider =
   }
 
   final team = ref.watch(gameTeamProvider(game.teamId));
-  final settings = TeamSettings.fromJson(team?.settings);
+  final settings = TeamSettings.fromJson(
+    game.settingsSnapshot ?? team?.settings,
+  );
   final genders = {for (final player in roster) player.id: player.gender};
 
-  final replay = const GameReplay().run(
-    events: ScoringRepository.inputsFrom(
-      pas: pas,
-      events: events,
-      genderByPlayerId: genders,
-    ),
-    personal: game.kind == GameKind.personal,
-    tracksScore: game.scope == GameScope.game,
-    weAreHome: game.homeAway == 'home',
-    lineupPlayerIds: [for (final slot in slots) slot.playerId],
-    rules: settings.rules,
-    ourHalfRuns: game.ourHalfRuns,
-    theirHalfRuns: game.theirHalfRuns,
-  );
+  try {
+    final replay = const GameReplay().run(
+      events: ScoringRepository.inputsFrom(
+        pas: pas,
+        events: events,
+        genderByPlayerId: genders,
+      ),
+      personal: game.kind == GameKind.personal,
+      tracksScore: game.scope == GameScope.game,
+      weAreHome: game.homeAway == 'home',
+      lineupPlayerIds: [for (final slot in slots) slot.playerId],
+      rules: settings.rules,
+      ourHalfRuns: game.ourHalfRuns,
+      theirHalfRuns: game.theirHalfRuns,
+    );
 
-  return AsyncValue.data(
-    FieldModeState(
-      game: game,
-      slots: slots,
-      roster: roster,
-      events: events,
-      settings: settings,
-      replay: replay,
-    ),
-  );
+    return AsyncValue.data(
+      FieldModeState(
+        game: game,
+        slots: slots,
+        roster: roster,
+        events: events,
+        settings: settings,
+        replay: replay,
+      ),
+    );
+  } catch (error, stack) {
+    return AsyncValue.error(error, stack);
+  }
 });

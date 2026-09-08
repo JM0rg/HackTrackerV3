@@ -165,17 +165,32 @@ class AppSpacing extends ThemeExtension<AppSpacing> {
 
 @immutable
 class AppRadii extends ThemeExtension<AppRadii> {
-  const AppRadii({required this.sm, required this.md, required this.lg});
+  const AppRadii({
+    required this.sm,
+    required this.md,
+    required this.lg,
+    required this.xl,
+  });
 
   final double sm;
   final double md;
+
+  /// Cards and fields.
   final double lg;
 
-  static const defaults = AppRadii(sm: 6, md: 10, lg: 14);
+  /// Sheets and the largest surfaces.
+  final double xl;
+
+  static const defaults = AppRadii(sm: 6, md: 10, lg: 18, xl: 28);
 
   @override
-  AppRadii copyWith({double? sm, double? md, double? lg}) {
-    return AppRadii(sm: sm ?? this.sm, md: md ?? this.md, lg: lg ?? this.lg);
+  AppRadii copyWith({double? sm, double? md, double? lg, double? xl}) {
+    return AppRadii(
+      sm: sm ?? this.sm,
+      md: md ?? this.md,
+      lg: lg ?? this.lg,
+      xl: xl ?? this.xl,
+    );
   }
 
   @override
@@ -185,17 +200,24 @@ class AppRadii extends ThemeExtension<AppRadii> {
       sm: AppSpacing.lerpDouble(sm, other.sm, t),
       md: AppSpacing.lerpDouble(md, other.md, t),
       lg: AppSpacing.lerpDouble(lg, other.lg, t),
+      xl: AppSpacing.lerpDouble(xl, other.xl, t),
     );
   }
 }
 
 class AppTheme {
-  static ThemeData light() => _base(Brightness.light, AppPalette.light);
-  static ThemeData dark() => _base(Brightness.dark, AppPalette.dark);
+  /// [fontFamily] is for tests only: the widget tester has no platform font,
+  /// so goldens would render every glyph as a box. Production passes nothing
+  /// and gets SF Pro or Roboto.
+  static ThemeData light({String? fontFamily}) =>
+      _base(Brightness.light, AppPalette.light, fontFamily);
+  static ThemeData dark({String? fontFamily}) =>
+      _base(Brightness.dark, AppPalette.dark, fontFamily);
 
-  static ThemeData _base(Brightness brightness, AppPalette p) {
+  static ThemeData _base(Brightness brightness, AppPalette p, String? fontFamily) {
     final colors = AppColors.fromPalette(p);
-    final textTheme = AppTypography.textTheme(p.text, p.muted);
+    final textTheme = AppTypography.textTheme(p.text, p.muted)
+        .apply(fontFamily: fontFamily ?? AppTypography.family);
     final overlay = brightness == Brightness.dark
         ? SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent)
         : SystemUiOverlayStyle.dark.copyWith(statusBarColor: Colors.transparent);
@@ -219,7 +241,8 @@ class AppTheme {
       surfaceContainerHighest: p.surfaceHigh,
     );
 
-    final radius = BorderRadius.circular(AppRadii.defaults.md);
+    // Hairlines, not borders: a separator you can barely see.
+    final hairline = p.text.withValues(alpha: 0.06);
 
     return ThemeData(
       useMaterial3: true,
@@ -227,7 +250,7 @@ class AppTheme {
       colorScheme: scheme,
       scaffoldBackgroundColor: p.bg,
       canvasColor: p.bg,
-      fontFamily: AppTypography.family,
+      fontFamily: fontFamily ?? AppTypography.family,
       textTheme: textTheme,
       primaryTextTheme: textTheme,
       splashFactory: InkRipple.splashFactory,
@@ -238,7 +261,7 @@ class AppTheme {
         scrolledUnderElevation: 0,
         centerTitle: false,
         systemOverlayStyle: overlay,
-        titleTextStyle: textTheme.titleLarge,
+        titleTextStyle: textTheme.headlineSmall,
         iconTheme: IconThemeData(color: p.text),
       ),
       navigationBarTheme: NavigationBarThemeData(
@@ -258,21 +281,23 @@ class AppTheme {
           return IconThemeData(color: selected ? p.accent : p.muted, size: 22);
         }),
       ),
+      // Capsules. The primary action is the only filled thing on a screen.
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: p.accent,
           foregroundColor: p.onAccent,
-          minimumSize: const Size(64, 48),
-          shape: RoundedRectangleBorder(borderRadius: radius),
+          minimumSize: const Size(64, 52),
+          shape: const StadiumBorder(),
           textStyle: textTheme.labelLarge,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: p.text,
-          minimumSize: const Size(64, 48),
-          side: BorderSide(color: p.border),
-          shape: RoundedRectangleBorder(borderRadius: radius),
+          backgroundColor: p.surfaceHigh,
+          minimumSize: const Size(64, 52),
+          side: BorderSide.none,
+          shape: const StadiumBorder(),
           textStyle: textTheme.labelLarge,
         ),
       ),
@@ -282,15 +307,22 @@ class AppTheme {
           textStyle: textTheme.labelLarge,
         ),
       ),
+      // Fields are filled surfaces, not outlined boxes.
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: p.surface,
+        fillColor: p.surfaceHigh,
         labelStyle: textTheme.bodyMedium?.copyWith(color: p.muted),
         hintStyle: textTheme.bodyMedium?.copyWith(color: p.muted),
-        border: OutlineInputBorder(borderRadius: radius, borderSide: BorderSide(color: p.border)),
-        enabledBorder: OutlineInputBorder(borderRadius: radius, borderSide: BorderSide(color: p.border)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.defaults.lg),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.defaults.lg),
+          borderSide: BorderSide.none,
+        ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: radius,
+          borderRadius: BorderRadius.circular(AppRadii.defaults.lg),
           borderSide: BorderSide(color: p.accent, width: 1.5),
         ),
       ),
@@ -298,58 +330,69 @@ class AppTheme {
         color: p.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: radius,
-          side: BorderSide(color: p.border),
+          borderRadius: BorderRadius.circular(AppRadii.defaults.lg),
         ),
       ),
-      dividerTheme: DividerThemeData(color: p.border, space: 1, thickness: 1),
-      switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return p.onAccent;
-          return p.muted;
-        }),
-        trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return p.accent;
-          return p.surfaceHigh;
-        }),
-      ),
+      dividerTheme: DividerThemeData(color: hairline, space: 1, thickness: 1),
       chipTheme: ChipThemeData(
         backgroundColor: p.surfaceHigh,
         selectedColor: p.accent.withValues(alpha: 0.18),
         labelStyle: textTheme.labelMedium!,
-        side: BorderSide(color: p.border),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.defaults.sm)),
+        side: BorderSide.none,
+        shape: const StadiumBorder(),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: p.accent,
         foregroundColor: p.onAccent,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.defaults.lg)),
+        shape: const StadiumBorder(),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: p.surface,
-        titleTextStyle: textTheme.titleLarge,
+        titleTextStyle: textTheme.titleMedium,
         contentTextStyle: textTheme.bodyMedium,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.defaults.lg)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.defaults.xl)),
       ),
-      listTileTheme: ListTileThemeData(
-        iconColor: p.muted,
-        textColor: p.text,
-        titleTextStyle: textTheme.titleSmall,
-        subtitleTextStyle: textTheme.bodySmall,
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: p.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadii.defaults.xl),
+          ),
+        ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(
           foregroundColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) return p.onAccent;
-            return p.text;
+            if (states.contains(WidgetState.selected)) return p.text;
+            return p.muted;
           }),
           backgroundColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) return p.accent;
-            return p.surface;
+            if (states.contains(WidgetState.selected)) return p.surface;
+            return p.surfaceHigh;
           }),
-          side: WidgetStatePropertyAll(BorderSide(color: p.border)),
+          side: const WidgetStatePropertyAll(BorderSide.none),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadii.defaults.sm + 3),
+            ),
+          ),
         ),
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: const WidgetStatePropertyAll(Colors.white),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return p.accent;
+          return p.surfaceHigh;
+        }),
+        trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: p.muted,
+        textColor: p.text,
+        titleTextStyle: textTheme.bodyLarge,
+        subtitleTextStyle: textTheme.bodySmall,
       ),
       extensions: [AppSpacing.defaults, AppRadii.defaults, colors],
     );

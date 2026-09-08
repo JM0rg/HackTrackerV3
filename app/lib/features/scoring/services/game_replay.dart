@@ -1,3 +1,4 @@
+import 'package:hacktracker/core/domain/models/play_resolution.dart';
 import 'package:hacktracker/core/domain/models/out_kind.dart';
 import 'package:hacktracker/core/domain/models/team_settings.dart';
 import 'package:hacktracker/core/domain/pa_result.dart';
@@ -23,8 +24,10 @@ class PaEventInput extends GameEventInput {
     this.hitLocation,
     this.qualityOfContact,
     this.outKind,
+    this.resolution,
   });
 
+  final PlayResolution? resolution;
   final String paId;
   final String playerId;
   final PaResult result;
@@ -114,12 +117,37 @@ class ReplayedPa {
   final String? qualityOfContact;
   final OutKind? outKind;
 
+  /// Credits the run to the appearance that put this runner on base.
+  ReplayedPa withRunScored() => ReplayedPa(
+    paId: paId,
+    playerId: playerId,
+    sequence: sequence,
+    inning: inning,
+    half: half,
+    requested: requested,
+    effective: effective,
+    runs: runs,
+    rbi: rbi,
+    runsScored: 1,
+    outsRecorded: outsRecorded,
+    minRuns: minRuns,
+    maxRuns: maxRuns,
+    batterScored: true,
+    hitLocation: hitLocation,
+    qualityOfContact: qualityOfContact,
+    outKind: outKind,
+  );
+
   bool get canAdjustRuns => maxRuns > minRuns;
   bool get ruleApplied => effective != requested;
 }
 
 class InningLine {
-  const InningLine({required this.inning, required this.ourRuns, required this.theirRuns});
+  const InningLine({
+    required this.inning,
+    required this.ourRuns,
+    required this.theirRuns,
+  });
 
   final int inning;
   final int ourRuns;
@@ -178,7 +206,8 @@ class GameReplay {
     int ourHalfRuns = 0,
     int theirHalfRuns = 0,
   }) {
-    final ordered = [...events]..sort((a, b) => a.sequence.compareTo(b.sequence));
+    final ordered = [...events]
+      ..sort((a, b) => a.sequence.compareTo(b.sequence));
     if (personal && !tracksScore) return _personalBat(ordered);
     if (personal) {
       return _personalGame(
@@ -234,6 +263,7 @@ class GameReplay {
             batterIsMale: event.batterIsMale,
             teamHomeRunsSoFar: homeRuns,
             runsOverride: event.runsOverride,
+            resolution: event.resolution,
           );
           pas.add(
             ReplayedPa(
@@ -256,11 +286,20 @@ class GameReplay {
               outKind: event.outKind,
             ),
           );
+          for (final runnerId in outcome.scoredPlayerIds) {
+            // Search backward: a player may bat more than once in an inning.
+            final index = pas.lastIndexWhere((pa) => pa.playerId == runnerId);
+            if (index >= 0) pas[index] = pas[index].withRunScored();
+          }
           if (outcome.effectiveResult == PaResult.homer) homeRuns += 1;
           innings.ours(outcome.runs);
           outs += outcome.outsAdded;
           bases = outcome.bases;
-          nextBatterIndex = _nextIndex(lineupPlayerIds, event.playerId, nextBatterIndex);
+          nextBatterIndex = _nextIndex(
+            lineupPlayerIds,
+            event.playerId,
+            nextBatterIndex,
+          );
           if (outcome.inningEnded) {
             outs = 0;
             bases = BaseState.empty;
@@ -279,8 +318,9 @@ class GameReplay {
       bases: bases,
       ourRuns: innings.ourRuns,
       theirRuns: innings.theirRuns,
-      nextBatterIndex:
-          lineupPlayerIds.isEmpty ? 0 : nextBatterIndex % lineupPlayerIds.length,
+      nextBatterIndex: lineupPlayerIds.isEmpty
+          ? 0
+          : nextBatterIndex % lineupPlayerIds.length,
       pas: pas,
       innings: innings.lines(),
       homeRuns: homeRuns,
@@ -314,7 +354,7 @@ class GameReplay {
           final pa = _personalPa(event, innings.inning, innings.half);
           pas.add(pa);
           if (pa.effective == PaResult.homer) homeRuns += 1;
-          innings.ours(_personalRunsFor(pa));
+        // Team score is entered independently; RBI is a player statistic.
       }
     }
 
@@ -376,7 +416,8 @@ class GameReplay {
     final rbi = result.earnsRbi
         ? (event.runsOverride ?? min).clamp(min, personalMaxRbi)
         : 0;
-    final scored = result == PaResult.homer ||
+    final scored =
+        result == PaResult.homer ||
         (result.reachesBase && (event.batterScoredOverride ?? false));
     return ReplayedPa(
       paId: event.paId,
@@ -448,11 +489,13 @@ class _Innings {
   }
 
   void endOurHalf() {
+    _ours.putIfAbsent(inning, () => 0);
     weBat = false;
     if (weAreHome) inning += 1;
   }
 
   void endTheirHalf() {
+    _theirs.putIfAbsent(inning, () => 0);
     weBat = true;
     if (!weAreHome) inning += 1;
   }
@@ -461,7 +504,11 @@ class _Innings {
     final numbers = <int>{..._ours.keys, ..._theirs.keys}.toList()..sort();
     return [
       for (final n in numbers)
-        InningLine(inning: n, ourRuns: _ours[n] ?? 0, theirRuns: _theirs[n] ?? 0),
+        InningLine(
+          inning: n,
+          ourRuns: _ours[n] ?? 0,
+          theirRuns: _theirs[n] ?? 0,
+        ),
     ];
   }
 }

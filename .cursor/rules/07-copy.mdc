@@ -1,0 +1,62 @@
+---
+description: UI copy — no assumptions, no instructions, no marketing
+alwaysApply: true
+---
+
+# Copy
+
+Every string that ships obeys these. They are not style preferences.
+
+## Never assume the user's situation
+
+Do not say where they are, who they are with, what they are doing, or why.
+The app does not know. Cut the assumption and keep the fact.
+
+- ✗ "Score from the dugout while you play."
+- ✗ "Perfect for your Tuesday night league."
+- ✗ "So you never miss an at-bat."
+
+## Never explain the interaction
+
+The interface teaches itself by being used. Copy that describes a gesture or a
+tap count is a manual, and no app people like ships one.
+
+- ✗ "One drag per at-bat."
+- ✗ "Tap the card to open it."
+- ✗ "Two taps and you're scoring."
+
+**The one exception**, narrow and deliberate: a gesture with no visible
+affordance may carry a single transient hint that disappears once it has been
+used. Field Mode's "drag <name> to a base" is that, and it is the only kind
+allowed. It is never permanent, never on a screen with buttons.
+
+## Empty states are a title and an action
+
+Name what is missing. Add a body line only when it states a fact the reader
+cannot infer from the title, never a benefit and never an instruction. Most
+empty states need no body at all.
+
+- ✓ "No players yet" + **Add a player**
+- ✗ "No players yet" + "Add everyone who might bat. You pick the order when you
+  start a game."
+
+## No marketing
+
+No benefits, no adjectives, no taglines, no "Optional:", no explaining why a
+feature is worth using. If a feature needs a sentence to justify it, the
+problem is the feature.
+
+## A control says what happens
+
+The label names the outcome, and the next screen delivers it.
+
+- ✓ "Start a game", "Add a player", "End game"
+- ✗ "Get started", "Let's go", "Continue"
+
+## Before shipping a string
+
+1. Could it be deleted without losing information? Delete it.
+2. Does it assume anything about the person or their circumstances? Cut that.
+3. Does it describe a gesture, a tap, or a number of steps? Cut it, unless it
+   is the transient gesture hint above.
+4. Is it selling? Cut it.

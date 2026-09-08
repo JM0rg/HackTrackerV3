@@ -25,8 +25,9 @@ class PlayersScreen extends ConsumerWidget {
       body: players.when(
         data: (list) => list.isEmpty
             ? EmptyState(
-                title: 'Add tonight’s roster.',
-                actionLabel: 'Add player',
+                icon: Icons.person_add_alt,
+                title: 'No players yet',
+                actionLabel: 'Add a player',
                 onAction: () => _editPlayer(context, ref, teamId),
               )
             : ListView(

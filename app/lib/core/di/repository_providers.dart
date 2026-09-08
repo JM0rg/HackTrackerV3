@@ -92,6 +92,32 @@ final myPaRowsStreamProvider = StreamProvider<List<YouPaRow>>((ref) {
   return ref.watch(meRepositoryProvider).watchMyPaRows();
 });
 
+/// The newest personal game still in progress, for the live strip.
+final liveGameProvider = Provider<Game?>((ref) {
+  final games = ref.watch(myGamesStreamProvider).valueOrNull ?? const <Game>[];
+  for (final game in games) {
+    if (game.status == 'live') return game;
+  }
+  return null;
+});
+
+/// The newest team game still in progress.
+final teamLiveGameProvider = Provider.family<Game?, String>((ref, teamId) {
+  final games = ref.watch(gamesStreamProvider(teamId)).valueOrNull ?? const <Game>[];
+  for (final game in games) {
+    if (game.status == 'live') return game;
+  }
+  return null;
+});
+
+/// Your line in every game, by game id.
+final myGameLinesProvider = Provider<Map<String, GameLine>>((ref) {
+  final me = ref.watch(meStreamProvider).valueOrNull;
+  if (me == null) return const {};
+  final rows = ref.watch(myPaRowsStreamProvider).valueOrNull ?? const <YouPaRow>[];
+  return gameLines(rows, me.id);
+});
+
 final youFilterProvider = StateProvider<YouFilter>((ref) {
   return const YouFilter.all();
 });

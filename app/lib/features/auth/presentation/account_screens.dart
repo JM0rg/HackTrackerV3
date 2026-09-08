@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hacktracker/core/config/env.dart';
-import 'package:hacktracker/core/di/providers.dart';
 import 'package:hacktracker/core/di/repository_providers.dart';
 import 'package:hacktracker/core/theme/theme_context_extensions.dart';
 import 'package:hacktracker/core/widgets/app_widgets.dart';
@@ -18,6 +17,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   final _email = TextEditingController();
   final _otp = TextEditingController();
   var _sent = false;
+  var _busy = false;
   String? _error;
 
   @override
@@ -37,14 +37,22 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Optional. Keep scoring without an account. Sign in to sync games and invite players.',
+              'Connect your account. Your local scorebook stays available offline.',
               style: context.text.bodyMedium,
             ),
             SizedBox(height: context.themeSpacing.md),
-            AppTextField(label: 'Email', controller: _email, keyboardType: TextInputType.emailAddress),
+            AppTextField(
+              label: 'Email',
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+            ),
             if (_sent) ...[
               SizedBox(height: context.themeSpacing.sm),
-              AppTextField(label: 'Code', controller: _otp, keyboardType: TextInputType.number),
+              AppTextField(
+                label: 'Code',
+                controller: _otp,
+                keyboardType: TextInputType.number,
+              ),
             ],
             if (_error != null) ...[
               SizedBox(height: context.themeSpacing.sm),
@@ -53,7 +61,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
             SizedBox(height: context.themeSpacing.md),
             AppButton(
               label: _sent ? 'Verify' : 'Send code',
-              onPressed: !Env.hasSupabase ? null : _submit,
+              onPressed: !Env.hasSupabase || _busy ? null : _submit,
             ),
           ],
         ),
@@ -62,10 +70,16 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   }
 
   Future<void> _submit() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
       final client = Supabase.instance.client;
       if (!_sent) {
         await client.auth.signInWithOtp(email: _email.text.trim());
+        if (!mounted) return;
         setState(() {
           _sent = true;
           _error = null;
@@ -78,14 +92,20 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         );
         final user = client.auth.currentUser;
         if (user != null) {
-          await ref.read(meRepositoryProvider).linkToUser(user.id);
-          await ref.read(trackerRepositoryProvider).claimLocalTeamsAsOwner(user.id);
-          await ref.read(syncEngineProvider)?.sync();
+          if (!mounted) return;
+          try {
+            await ref.read(meRepositoryProvider).linkToUser(user.id);
+          } catch (_) {
+            await client.auth.signOut();
+            rethrow;
+          }
         }
         if (mounted) context.pop();
       }
     } catch (e) {
-      setState(() => _error = '$e');
+      if (mounted) setState(() => _error = '$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 }

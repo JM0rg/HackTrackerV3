@@ -38,7 +38,8 @@ class PersonalTeams extends Table with SyncColumns {
 class Teams extends Table with SyncColumns {
   TextColumn get name => text()();
   TextColumn get type => text().withDefault(const Constant('mens'))();
-  TextColumn get settings => text().withDefault(const Constant(defaultTeamSettings))();
+  TextColumn get settings =>
+      text().withDefault(const Constant(defaultTeamSettings))();
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -67,7 +68,8 @@ class Players extends Table with SyncColumns {
   TextColumn get lastName => text().withDefault(const Constant(''))();
   TextColumn get jerseyNumber => text().nullable()();
   TextColumn get bats => text().withDefault(const Constant('right'))();
-  TextColumn get throws_ => text().named('throws').withDefault(const Constant('right'))();
+  TextColumn get throws_ =>
+      text().named('throws').withDefault(const Constant('right'))();
   TextColumn get gender => text().withDefault(const Constant('undisclosed'))();
   TextColumn get status => text().withDefault(const Constant('active'))();
   @override
@@ -95,6 +97,10 @@ class Competitions extends Table with SyncColumns {
 }
 
 class Games extends Table with SyncColumns {
+  TextColumn get scoringDraft => text().nullable()();
+
+  /// Frozen at creation so future team settings cannot rewrite this game.
+  TextColumn get settingsSnapshot => text().nullable()();
   TextColumn get teamId => text().nullable()();
   TextColumn get kind => text().withDefault(const Constant('team'))();
   TextColumn get opponentId => text().nullable()();
@@ -118,14 +124,14 @@ class Games extends Table with SyncColumns {
   TextColumn get firstBaseId => text().nullable()();
   TextColumn get secondBaseId => text().nullable()();
   TextColumn get thirdBaseId => text().nullable()();
-  IntColumn get currentBatterIndex => integer().withDefault(const Constant(0))();
+  IntColumn get currentBatterIndex =>
+      integer().withDefault(const Constant(0))();
 
   /// Runs tallied in the opponent half that is under way. Committed to a
   /// `game_events` row when the half ends.
   IntColumn get theirHalfRuns => integer().withDefault(const Constant(0))();
 
-  /// Personal games that keep score: teammates' runs in our half under way.
-  /// Your own RBI come from your plate appearances.
+  /// Personal games: total team runs in our half, independent of player RBI.
   IntColumn get ourHalfRuns => integer().withDefault(const Constant(0))();
 
   /// `bat` (just your at-bats) or `game` (at-bats plus team scores). Team
@@ -154,6 +160,11 @@ class LineupSlots extends Table with SyncColumns {
 }
 
 class PlateAppearances extends Table with SyncColumns {
+  TextColumn get resolution => text().nullable()();
+  BoolColumn get batterWasMale => boolean().nullable()();
+
+  /// Rebuildable scoring credit after applying the game rules.
+  TextColumn get effectiveResult => text().nullable()();
   TextColumn get teamId => text().nullable()();
   TextColumn get gameId => text()();
   TextColumn get playerId => text()();
@@ -186,6 +197,7 @@ class PlateAppearances extends Table with SyncColumns {
 /// half. Shares one sequence space with `plate_appearances` so the whole game
 /// replays and undoes in order.
 class GameEvents extends Table with SyncColumns {
+  TextColumn get payload => text().nullable()();
   TextColumn get teamId => text().nullable()();
   TextColumn get gameId => text()();
   IntColumn get sequence => integer()();
@@ -241,20 +253,39 @@ class LocalSyncCursors extends Table {
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
-      : super(executor ?? driftDatabase(name: 'hacktracker'));
+    : super(executor ?? driftDatabase(name: 'hacktracker'));
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (m) => m.createAll(),
       onUpgrade: (m, from, to) async {
-        for (final table in allTables) {
-          await m.deleteTable(table.actualTableName);
+        if (from >= 6) {
+          if (from < 7) {
+            await m.addColumn(games, games.settingsSnapshot);
+            await m.addColumn(
+              plateAppearances,
+              plateAppearances.effectiveResult,
+            );
+            await customStatement(
+              'UPDATE games SET settings_snapshot = COALESCE((SELECT settings FROM teams WHERE teams.id = games.team_id), ?)',
+              [defaultTeamSettings],
+            );
+          }
+          if (from < 8) {
+            await m.addColumn(games, games.scoringDraft);
+            await m.addColumn(plateAppearances, plateAppearances.resolution);
+            await m.addColumn(plateAppearances, plateAppearances.batterWasMale);
+            await m.addColumn(gameEvents, gameEvents.payload);
+          }
+          return;
         }
-        await m.createAll();
+        throw StateError(
+          'This database predates supported upgrades. Keep the database file and export it with the previous HackTracker build before upgrading. No games have been erased.',
+        );
       },
     );
   }

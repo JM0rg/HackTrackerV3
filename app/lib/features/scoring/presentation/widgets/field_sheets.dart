@@ -1,3 +1,4 @@
+import 'package:hacktracker/features/scoring/presentation/widgets/runner_resolution_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hacktracker/core/di/repository_providers.dart';
@@ -11,7 +12,19 @@ import 'package:hacktracker/features/scoring/presentation/widgets/field_style.da
 import 'package:hacktracker/features/scoring/presentation/widgets/last_play_line.dart';
 import 'package:hacktracker/features/scoring/services/game_replay.dart';
 
-const _sprayZones = ['P', 'C', '1B', '2B', 'SS', '3B', 'LF', 'LCF', 'CF', 'RCF', 'RF'];
+const _sprayZones = [
+  'P',
+  'C',
+  '1B',
+  '2B',
+  'SS',
+  '3B',
+  'LF',
+  'LCF',
+  'CF',
+  'RCF',
+  'RF',
+];
 const _contact = ['weak', 'medium', 'hard'];
 
 Future<T?> _sheet<T>(BuildContext context, WidgetBuilder builder) {
@@ -27,7 +40,7 @@ Future<T?> _sheet<T>(BuildContext context, WidgetBuilder builder) {
         top: Radius.circular(context.themeRadii.lg + 8),
       ),
     ),
-    builder: builder,
+    builder: (context) => SingleChildScrollView(child: builder(context)),
   );
 }
 
@@ -45,7 +58,12 @@ class _Frame extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(spacing.md, spacing.sm, spacing.md, spacing.md),
+        padding: EdgeInsets.fromLTRB(
+          spacing.md,
+          spacing.sm,
+          spacing.md,
+          spacing.md,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -61,7 +79,10 @@ class _Frame extends StatelessWidget {
               ),
             ),
             SizedBox(height: spacing.md),
-            Text(title, style: context.text.titleMedium?.copyWith(color: field.on)),
+            Text(
+              title,
+              style: context.text.titleMedium?.copyWith(color: field.on),
+            ),
             if (subtitle != null)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
@@ -110,7 +131,10 @@ class _Option extends StatelessWidget {
           decoration: BoxDecoration(
             color: on ? field.surfaceHigh : null,
             borderRadius: BorderRadius.circular(context.themeRadii.md + 2),
-            border: Border.all(color: on ? field.accent : Colors.transparent, width: 1.5),
+            border: Border.all(
+              color: on ? field.accent : Colors.transparent,
+              width: 1.5,
+            ),
           ),
           child: Row(
             children: [
@@ -170,7 +194,10 @@ class _Chip extends StatelessWidget {
           decoration: BoxDecoration(
             color: on ? field.accent : Colors.transparent,
             borderRadius: BorderRadius.circular(context.themeRadii.md),
-            border: Border.all(color: on ? field.accent : field.lineStrong, width: 1.5),
+            border: Border.all(
+              color: on ? field.accent : field.lineStrong,
+              width: 1.5,
+            ),
           ),
           child: Text(
             label,
@@ -220,7 +247,9 @@ class _FixSheet extends ConsumerWidget {
     final pa = state?.replay.pas.where((p) => p.paId == paId).firstOrNull;
     if (state == null || pa == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted && Navigator.canPop(context)) Navigator.pop(context);
+        if (context.mounted && Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
       });
       return const SizedBox(height: 120);
     }
@@ -236,164 +265,251 @@ class _FixSheet extends ConsumerWidget {
     final children = <Widget>[];
 
     if (team) {
-      if (r == PaResult.single || r == PaResult.reachOnError || r == PaResult.fieldersChoice) {
-        children.add(_Option(
-          key: const Key('fix-error'),
-          label: 'On an error',
-          sub: 'ROE',
-          on: r == PaResult.reachOnError,
-          onTap: () => change(r == PaResult.reachOnError ? PaResult.single : PaResult.reachOnError),
-        ));
-        children.add(_Option(
-          key: const Key('fix-runnerOut'),
-          label: 'Runner forced out',
-          sub: 'FC',
-          on: r == PaResult.fieldersChoice,
-          onTap: () => change(r == PaResult.fieldersChoice ? PaResult.single : PaResult.fieldersChoice),
-        ));
+      if (r == PaResult.single ||
+          r == PaResult.reachOnError ||
+          r == PaResult.fieldersChoice) {
+        children.add(
+          _Option(
+            key: const Key('fix-error'),
+            label: 'On an error',
+            sub: 'ROE',
+            on: r == PaResult.reachOnError,
+            onTap: () => change(
+              r == PaResult.reachOnError
+                  ? PaResult.single
+                  : PaResult.reachOnError,
+            ),
+          ),
+        );
+        children.add(
+          _Option(
+            key: const Key('fix-runnerOut'),
+            label: 'Runner forced out',
+            sub: 'FC',
+            on: r == PaResult.fieldersChoice,
+            onTap: () => change(
+              r == PaResult.fieldersChoice
+                  ? PaResult.single
+                  : PaResult.fieldersChoice,
+            ),
+          ),
+        );
       }
-      if (r == PaResult.out || r == PaResult.strikeout || r == PaResult.sacFly) {
-        final runScored = r == PaResult.sacFly || (r == PaResult.out && pa.runs > 0);
+      if (r == PaResult.out ||
+          r == PaResult.strikeout ||
+          r == PaResult.sacFly) {
+        final runScored =
+            r == PaResult.sacFly || (r == PaResult.out && pa.runs > 0);
         children.add(_sectionLabel(context, 'HOW'));
         children.add(_outKindRow(context, repo, game, paId, pa));
-        children.add(_Option(
-          key: const Key('fix-runScored'),
-          label: 'A run scored on it',
-          sub: runScored
-              ? (r == PaResult.sacFly ? 'SF' : 'OUT + RBI')
-              : (pa.outKind == OutKind.ground ? 'RBI' : 'SF'),
-          on: runScored,
-          onTap: () => repo.setRunScoredOnOut(game: game, paId: paId, scored: !runScored),
-        ));
+        children.add(
+          _Option(
+            key: const Key('fix-runScored'),
+            label: 'A run scored on it',
+            sub: runScored
+                ? (r == PaResult.sacFly ? 'SF' : 'OUT + RBI')
+                : (pa.outKind == OutKind.ground ? 'RBI' : 'SF'),
+            on: runScored,
+            onTap: () => repo.setRunScoredOnOut(
+              game: game,
+              paId: paId,
+              scored: !runScored,
+            ),
+          ),
+        );
       }
     } else {
       if (r.earnsRbi) {
         final min = GameReplay.personalMinRbi(r);
         children.add(_sectionLabel(context, 'RBI'));
-        children.add(Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (var n = min; n <= GameReplay.personalMaxRbi; n++)
-              _Chip(
-                key: Key('rbi-$n'),
-                label: '$n',
-                on: pa.rbi == n,
-                onTap: () => repo.setRunsOnPlay(game: game, paId: paId, runs: n),
-              ),
-          ],
-        ));
+        children.add(
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (var n = min; n <= GameReplay.personalMaxRbi; n++)
+                _Chip(
+                  key: Key('rbi-$n'),
+                  label: '$n',
+                  on: pa.rbi == n,
+                  onTap: () =>
+                      repo.setRunsOnPlay(game: game, paId: paId, runs: n),
+                ),
+            ],
+          ),
+        );
         children.add(const SizedBox(height: 6));
       }
       if (r.reachesBase && r != PaResult.homer) {
-        children.add(_Option(
-          key: const Key('fix-me'),
-          label: 'I came around to score',
-          on: pa.batterScored,
-          onTap: () => repo.setBatterScored(game: game, paId: paId, scored: !pa.batterScored),
-        ));
+        children.add(
+          _Option(
+            key: const Key('fix-me'),
+            label: 'I came around to score',
+            on: pa.batterScored,
+            onTap: () => repo.setBatterScored(
+              game: game,
+              paId: paId,
+              scored: !pa.batterScored,
+            ),
+          ),
+        );
       }
-      if (r == PaResult.out || r == PaResult.strikeout || r == PaResult.sacFly) {
+      if (r == PaResult.out ||
+          r == PaResult.strikeout ||
+          r == PaResult.sacFly) {
         children.add(_sectionLabel(context, 'HOW'));
         children.add(_outKindRow(context, repo, game, paId, pa));
       }
     }
 
+    if (team) {
+      children.add(
+        TextButton.icon(
+          onPressed: () =>
+              showRunnerResolution(context, state: state, paId: paId),
+          icon: const Icon(Icons.alt_route_rounded),
+          label: const Text('Adjust runners & outs'),
+        ),
+      );
+      children.add(
+        DropdownButtonFormField<String>(
+          key: ValueKey('batter-${pa.playerId}'),
+          initialValue: state.roster.any((p) => p.id == pa.playerId)
+              ? pa.playerId
+              : null,
+          decoration: const InputDecoration(labelText: 'Batter credited'),
+          items: [
+            for (final player in state.roster)
+              DropdownMenuItem(
+                value: player.id,
+                child: Text('${player.firstName} ${player.lastName}'.trim()),
+              ),
+          ],
+          onChanged: (id) async {
+            if (id == null || id == pa.playerId) return;
+            try {
+              await repo.changeBatter(game: game, paId: paId, playerId: id);
+            } catch (error) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Could not change batter: $error')),
+                );
+              }
+            }
+          },
+        ),
+      );
+    }
     children.add(_sectionLabel(context, 'CHANGE IT TO'));
-    children.add(Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: [
-        for (final to in const [
-          PaResult.single,
-          PaResult.double,
-          PaResult.triple,
-          PaResult.homer,
-          PaResult.walk,
-          PaResult.out,
-        ])
-          _Chip(
-            key: Key('to-${to.wire}'),
-            label: to.label,
-            on: r == to,
-            tone: to.isHit ? field.accent : (to == PaResult.out ? field.onOut : null),
-            onTap: () => change(to),
-          ),
-      ],
-    ));
+    children.add(
+      Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final to in const [
+            PaResult.single,
+            PaResult.double,
+            PaResult.triple,
+            PaResult.homer,
+            PaResult.walk,
+            PaResult.out,
+          ])
+            _Chip(
+              key: Key('to-${to.wire}'),
+              label: to.label,
+              on: r == to,
+              tone: to.isHit
+                  ? field.accent
+                  : (to == PaResult.out ? field.onOut : null),
+              onTap: () => change(to),
+            ),
+        ],
+      ),
+    );
 
     if (team && state.settings.modules.capturesDetail) {
       if (state.settings.modules.spray || state.settings.modules.fielding) {
         children.add(_sectionLabel(context, 'WHERE IT WENT'));
-        children.add(Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final zone in _sprayZones)
-              _Chip(
-                label: zone,
-                on: pa.hitLocation == zone,
-                onTap: () => repo.setPaDetail(
-                  game: game,
-                  paId: paId,
-                  hitLocation: pa.hitLocation == zone ? null : zone,
-                  qualityOfContact: pa.qualityOfContact,
+        children.add(
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final zone in _sprayZones)
+                _Chip(
+                  label: zone,
+                  on: pa.hitLocation == zone,
+                  onTap: () => repo.setPaDetail(
+                    game: game,
+                    paId: paId,
+                    hitLocation: pa.hitLocation == zone ? null : zone,
+                    qualityOfContact: pa.qualityOfContact,
+                  ),
                 ),
-              ),
-          ],
-        ));
+            ],
+          ),
+        );
       }
       if (state.settings.modules.contact) {
         children.add(_sectionLabel(context, 'CONTACT'));
-        children.add(Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final q in _contact)
-              _Chip(
-                label: q,
-                on: pa.qualityOfContact == q,
-                onTap: () => repo.setPaDetail(
-                  game: game,
-                  paId: paId,
-                  hitLocation: pa.hitLocation,
-                  qualityOfContact: pa.qualityOfContact == q ? null : q,
+        children.add(
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final q in _contact)
+                _Chip(
+                  label: q,
+                  on: pa.qualityOfContact == q,
+                  onTap: () => repo.setPaDetail(
+                    game: game,
+                    paId: paId,
+                    hitLocation: pa.hitLocation,
+                    qualityOfContact: pa.qualityOfContact == q ? null : q,
+                  ),
                 ),
-              ),
-          ],
-        ));
+            ],
+          ),
+        );
       }
     }
 
     children.add(const SizedBox(height: 10));
-    children.add(_Option(
-      key: const Key('fix-delete'),
-      label: 'Delete this play',
-      on: false,
-      danger: true,
-      onTap: () async {
-        await repo.deletePa(game: game, paId: paId);
-        if (context.mounted) Navigator.pop(context);
-      },
-    ));
-    children.add(const SizedBox(height: 6));
-    children.add(SizedBox(
-      height: 44,
-      child: OutlinedButton(
-        onPressed: () => Navigator.pop(context),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: field.on,
-          side: BorderSide(color: field.lineStrong),
-        ),
-        child: Text('Done', style: context.text.bodyMedium?.copyWith(color: field.on)),
+    children.add(
+      _Option(
+        key: const Key('fix-delete'),
+        label: 'Delete this play',
+        on: false,
+        danger: true,
+        onTap: () async {
+          await repo.deletePa(game: game, paId: paId);
+          if (context.mounted) Navigator.pop(context);
+        },
       ),
-    ));
+    );
+    children.add(const SizedBox(height: 6));
+    children.add(
+      SizedBox(
+        height: 44,
+        child: OutlinedButton(
+          onPressed: () => Navigator.pop(context),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: field.on,
+            side: BorderSide(color: field.lineStrong),
+          ),
+          child: Text(
+            'Done',
+            style: context.text.bodyMedium?.copyWith(color: field.on),
+          ),
+        ),
+      ),
+    );
 
     return _Frame(
       title: '${pa.effective.label}  ${LastPlayLine.describe(state, pa)}',
       subtitle: team
-          ? '${pa.half == 'top' ? 'Top' : 'Bottom'} ${pa.inning}. Anything after it replays.'
-          : 'Anything after it replays.',
+          ? '${pa.half == 'top' ? 'Top' : 'Bottom'} ${pa.inning}'
+          : null,
       children: children,
     );
   }
@@ -432,7 +548,7 @@ Widget _outKindRow(
   );
 }
 
-/// Every entry in the game, newest at the bottom. Tap a play to fix it.
+/// Every entry in the game, newest at the bottom.
 Future<void> showLogSheet(BuildContext context, {required String gameId}) {
   return _sheet<void>(context, (_) => _LogSheet(gameId: gameId));
 }
@@ -507,8 +623,8 @@ class _LogSheet extends ConsumerWidget {
     return _Frame(
       title: 'This game',
       subtitle: rows.isEmpty
-          ? 'Nothing logged yet.'
-          : '$count plate appearance${count == 1 ? '' : 's'} · tap a play to fix it.',
+          ? null
+          : '$count plate appearance${count == 1 ? '' : 's'}',
       children: [
         ConstrainedBox(
           constraints: BoxConstraints(
@@ -527,40 +643,37 @@ class _LogSheet extends ConsumerWidget {
 
 enum GameMenuAction { endGame, editLineup, boxScore, switchScope }
 
-Future<GameMenuAction?> showGameMenu(BuildContext context, FieldModeState state) {
+Future<GameMenuAction?> showGameMenu(
+  BuildContext context,
+  FieldModeState state,
+) {
   return _sheet<GameMenuAction>(context, (ctx) {
     final field = ctx.colors.field;
-    Widget item(IconData icon, String title, String subtitle, GameMenuAction action) {
+    Widget item(IconData icon, String title, GameMenuAction action) {
       return ListTile(
         onTap: () => Navigator.pop(ctx, action),
         contentPadding: EdgeInsets.zero,
         leading: Icon(icon, color: field.muted),
-        title: Text(title, style: ctx.text.bodyLarge?.copyWith(color: field.on)),
-        subtitle: Text(subtitle, style: ctx.text.bodySmall?.copyWith(color: field.muted)),
+        title: Text(
+          title,
+          style: ctx.text.bodyLarge?.copyWith(color: field.on),
+        ),
       );
     }
 
     return _Frame(
       title: 'Game',
       children: [
-        item(Icons.table_chart_outlined, 'Box score', 'Lines for every batter',
-            GameMenuAction.boxScore),
+        item(Icons.table_chart_outlined, 'Box score', GameMenuAction.boxScore),
         if (!state.personal)
-          item(Icons.list_alt, 'Edit lineup', 'Add a sub or reorder',
-              GameMenuAction.editLineup),
+          item(Icons.list_alt, 'Edit lineup', GameMenuAction.editLineup),
         if (state.personal)
           item(
             Icons.swap_horiz,
-            state.tracksScore
-                ? 'Switch to My At-Bats Only'
-                : 'Switch to My At-Bats and Team Scores',
-            state.tracksScore
-                ? 'Drop the score; keep every at-bat'
-                : 'Keep both teams\' scores, half by half',
+            state.tracksScore ? 'Stop keeping team scores' : 'Keep team scores',
             GameMenuAction.switchScope,
           ),
-        item(Icons.flag_outlined, 'End game', 'Marks this game final',
-            GameMenuAction.endGame),
+        item(Icons.flag_outlined, 'End game', GameMenuAction.endGame),
       ],
     );
   });

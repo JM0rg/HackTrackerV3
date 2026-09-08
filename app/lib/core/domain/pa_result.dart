@@ -40,13 +40,14 @@ enum PaResult {
     };
   }
 
-  /// Unknown wire values fall back to a plain out rather than throwing, so one
-  /// bad row can never break a whole game replay.
+  /// Unknown future results must not silently become outs or alter statistics.
   static PaResult fromWire(String value) {
     for (final r in PaResult.values) {
       if (r.wire == value) return r;
     }
-    return PaResult.out;
+    throw FormatException(
+      'Unknown scoring result: $value. Update HackTracker to read this game.',
+    );
   }
 
   bool get isHit {

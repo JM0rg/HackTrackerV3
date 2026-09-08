@@ -30,9 +30,9 @@ class LineupScreen extends ConsumerWidget {
               final selected = slots.map((s) => s.playerId).toList();
               if (roster.isEmpty) {
                 return EmptyState(
-                  title: 'No players yet.',
-                  message: 'Add the roster, then pick tonight’s order.',
-                  actionLabel: 'Add players',
+                  icon: Icons.person_add_alt,
+                  title: 'No players yet',
+                  actionLabel: 'Add a player',
                   onAction: () => context.push('/players'),
                 );
               }
@@ -72,10 +72,16 @@ class LineupScreen extends ConsumerWidget {
                   Padding(
                     padding: EdgeInsets.all(context.themeSpacing.md),
                     child: AppButton(
-                      label: selected.isEmpty ? 'Pick at least one batter' : 'Start scoring',
+                      label: selected.isEmpty ? 'Pick at least one batter' : 'Done',
                       onPressed: selected.isEmpty
                           ? null
-                          : () => context.push('/games/$gameId/play'),
+                          : () {
+                              if (context.canPop()) {
+                                context.pop();
+                              } else {
+                                context.go('/games/$gameId');
+                              }
+                            },
                     ),
                   ),
                 ],

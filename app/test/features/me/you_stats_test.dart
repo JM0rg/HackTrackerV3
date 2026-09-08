@@ -17,7 +17,7 @@ void main() {
     String personId = me,
   }) {
     return YouPaRow(
-      personId: personId,
+      personId: personId, gameId: 'g',
       gameKind: kind,
       teamId: teamId,
       result: result,
@@ -65,5 +65,44 @@ void main() {
     final inputs = youPaInputs(rows, const YouFilter.all(), me);
     expect(inputs.every((p) => p.playerId == me), isTrue);
     expect(inputs.length, 4);
+  });
+
+  test('gameLines groups your plate appearances by game', () {
+    const me = 'me';
+    YouPaRow row(String game, PaResult r, {int rbi = 0, int runs = 0}) {
+      return YouPaRow(
+        personId: me,
+        gameId: game,
+        gameKind: GameKind.personal,
+        teamId: null,
+        result: r,
+        rbi: rbi,
+        runsScored: runs,
+      );
+    }
+
+    final lines = gameLines([
+      row('g1', PaResult.single, rbi: 1),
+      row('g1', PaResult.walk),
+      row('g1', PaResult.homer, rbi: 2, runs: 1),
+      row('g1', PaResult.out),
+      row('g2', PaResult.strikeout),
+      YouPaRow(
+        personId: 'someone-else',
+        gameId: 'g2',
+        gameKind: GameKind.personal,
+        teamId: null,
+        result: PaResult.homer,
+        rbi: 4,
+        runsScored: 1,
+      ),
+    ], me);
+
+    expect(lines['g1']!.summary, '2 for 3');
+    expect(lines['g1']!.results, ['1B', 'HR']);
+    expect(lines['g1']!.rbi, 3);
+    expect(lines['g1']!.runs, 1);
+    expect(lines['g2']!.summary, '0 for 1');
+    expect(lines['g2']!.rbi, 0);
   });
 }

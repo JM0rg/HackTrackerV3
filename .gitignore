@@ -23,3 +23,6 @@ build/
 coverage/
 *.log
 .DS_Store
+
+# Generated golden-test mismatch diagnostics
+**/test/**/failures/

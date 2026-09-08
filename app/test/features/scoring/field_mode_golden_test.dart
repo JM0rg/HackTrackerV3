@@ -3,13 +3,13 @@ library;
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hacktracker/core/di/providers.dart';
 import 'package:hacktracker/core/domain/models/game_scope.dart';
 import 'package:hacktracker/core/domain/pa_result.dart';
 import 'package:hacktracker/core/theme/app_theme.dart';
+import 'package:hacktracker/core/theme/app_palette.dart';
 import 'package:hacktracker/database/app_database.dart';
 import 'package:hacktracker/features/me/data/me_repository.dart';
 import 'package:hacktracker/features/scoring/data/scoring_repository.dart';
@@ -18,18 +18,7 @@ import 'package:hacktracker/features/scoring/presentation/widgets/field_style.da
 import 'package:hacktracker/features/teams/data/tracker_repository.dart';
 import 'package:uuid/uuid.dart';
 
-Future<void> _loadFonts() async {
-  final loader = FontLoader('IBMPlexSans');
-  for (final asset in const [
-    'assets/fonts/IBMPlexSans-Regular.ttf',
-    'assets/fonts/IBMPlexSans-Medium.ttf',
-    'assets/fonts/IBMPlexSans-SemiBold.ttf',
-    'assets/fonts/IBMPlexSans-Bold.ttf',
-  ]) {
-    loader.addFont(rootBundle.load(asset));
-  }
-  await loader.load();
-}
+import '../../helpers/test_fonts.dart';
 
 void main() {
   late AppDatabase db;
@@ -37,7 +26,7 @@ void main() {
   late MeRepository me;
   late ScoringRepository scoring;
 
-  setUpAll(_loadFonts);
+  setUpAll(loadTestFonts);
 
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
@@ -49,7 +38,11 @@ void main() {
 
   tearDown(() => db.close());
 
-  Future<void> pump(WidgetTester tester, String gameId) async {
+  Future<void> pump(
+    WidgetTester tester,
+    String gameId, {
+    bool outdoor = false,
+  }) async {
     tester.view.devicePixelRatio = 2;
     tester.view.physicalSize = const Size(430 * 2, 932 * 2);
     addTearDown(tester.view.reset);
@@ -58,7 +51,20 @@ void main() {
         overrides: [databaseProvider.overrideWithValue(db)],
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.dark(),
+          theme: outdoor
+              ? AppTheme.dark(fontFamily: 'Roboto').copyWith(
+                  extensions: [
+                    ...AppTheme.dark().extensions.values.where(
+                      (e) => e is! AppColors,
+                    ),
+                    AppColors.dark.copyWith(
+                      field: FieldPalette.outdoor,
+                      fieldBg: FieldPalette.outdoor.bg,
+                      fieldOn: FieldPalette.outdoor.on,
+                    ),
+                  ],
+                )
+              : AppTheme.dark(fontFamily: 'Roboto'),
           home: FieldModeScreen(gameId: gameId),
         ),
       ),
@@ -97,6 +103,20 @@ void main() {
     );
     return gameId;
   }
+
+  testWidgets('golden: outdoor field contrast', (tester) async {
+    final gameId = await teamGame();
+    await scoring.recordPa(
+      game: (await tracker.game(gameId))!,
+      result: PaResult.single,
+    );
+    await pump(tester, gameId, outdoor: true);
+    await expectLater(
+      find.byType(FieldModeScreen),
+      matchesGoldenFile('goldens/field_mode_outdoor.png'),
+    );
+    await finish(tester);
+  });
 
   testWidgets('golden: mid inning, runners on', (tester) async {
     final gameId = await teamGame();

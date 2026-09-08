@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -59,6 +60,7 @@ class OneCardDiamond extends StatefulWidget {
     required this.onCommit,
     required this.onWave,
     required this.onPendingChanged,
+    this.onDraftChanged,
   });
 
   final FieldModeState state;
@@ -67,12 +69,13 @@ class OneCardDiamond extends StatefulWidget {
   final bool showHint;
 
   /// Called once, when every question has an answer.
-  final ValueChanged<LoggedPlay> onCommit;
-  final ValueChanged<String> onWave;
+  final FutureOr<void> Function(LoggedPlay) onCommit;
+  final FutureOr<void> Function(String) onWave;
 
   /// True while a play is waiting on the row, so the rest of the screen can
   /// hold still.
   final ValueChanged<bool> onPendingChanged;
+  final Future<void> Function(String?)? onDraftChanged;
 
   @override
   State<OneCardDiamond> createState() => _OneCardDiamondState();
@@ -107,6 +110,86 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
     super.initState();
     _baseOf = _basesOf(widget.state);
     _justArrived = _baseOf.keys.toSet();
+    _restoreDraft();
+  }
+
+  Future<void> _draftWrites = Future.value();
+
+  int get _lastSequence => [
+    0,
+    ...widget.state.events.map((e) => e.sequence),
+    ...widget.state.replay.pas.map((p) => p.sequence),
+  ].reduce((a, b) => a > b ? a : b);
+
+  Future<void> _persistDraft({LoggedPlay? ready, bool clear = false}) {
+    final writer = widget.onDraftChanged;
+    if (writer == null) return Future.value();
+    final pending = _pending;
+    final encoded = clear
+        ? null
+        : jsonEncode({
+            'version': 1,
+            'batterId': widget.state.batter?.id,
+            'sequence': _lastSequence,
+            'result': (ready?.result ?? pending?.result)?.wire,
+            'outKind': (ready?.outKind ?? pending?.outKind)?.wire,
+            'rbi': ready?.rbi ?? pending?.rbi,
+            'questions':
+                pending?.questions.map((q) => q.name).toList() ?? <String>[],
+            'targetX': (_settleTarget?.dx ?? _geo.home.dx) / _geo.width,
+            'targetY': (_settleTarget?.dy ?? _geo.home.dy) / _geo.height,
+            'hidden': _settleHidden,
+          });
+    // Preserve input ordering, including cancel and retry after a failed write.
+    _draftWrites = _draftWrites
+        .catchError((Object _) {})
+        .then((_) => writer(encoded));
+    return _draftWrites;
+  }
+
+  void _restoreDraft() {
+    final source = widget.state.game.scoringDraft;
+    if (source == null) return;
+    try {
+      final raw = jsonDecode(source) as Map<String, dynamic>;
+      if (raw['version'] != 1 ||
+          raw['batterId'] != widget.state.batter?.id ||
+          raw['sequence'] != _lastSequence) {
+        return;
+      }
+      final result = PaResult.fromWire(raw['result'] as String);
+      final kind = OutKind.fromWire(raw['outKind'] as String?);
+      final questions = (raw['questions'] as List)
+          .map((q) => _Question.values.byName(q as String))
+          .toList();
+      _settleTarget = Offset(
+        (raw['targetX'] as num).toDouble() * _geo.width,
+        (raw['targetY'] as num).toDouble() * _geo.height,
+      );
+      _settleHidden = raw['hidden'] == true;
+      if (questions.isEmpty) {
+        _failedPlay = LoggedPlay(
+          result: result,
+          outKind: kind,
+          rbi: raw['rbi'] as int?,
+        );
+      } else {
+        _pending =
+            _Pending(
+                result: result,
+                target: _settleTarget!,
+                hidden: _settleHidden,
+                questions: questions,
+              )
+              ..outKind = kind
+              ..rbi = raw['rbi'] as int?;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onPendingChanged(true);
+      });
+    } catch (_) {
+      // Leave an unreadable draft in storage; never turn it into a scored out.
+    }
   }
 
   @override
@@ -158,7 +241,10 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
     return bestDistance <= g.snap ? best : null;
   }
 
-  bool get _locked => _pending != null;
+  bool _saving = false;
+  LoggedPlay? _failedPlay;
+
+  bool get _locked => _pending != null || _saving || _failedPlay != null;
 
   void _onPanStart(DragStartDetails d) {
     if (!widget.enabled || _locked) return;
@@ -206,15 +292,15 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
       DiamondZone.second => (PaResult.double, g.second, false),
       DiamondZone.third => (PaResult.triple, g.third, false),
       DiamondZone.homeRun => (
-          PaResult.homer,
-          Offset(g.home.dx, -30 * g.scale),
-          true,
-        ),
+        PaResult.homer,
+        Offset(g.home.dx, -30 * g.scale),
+        true,
+      ),
       DiamondZone.out => (
-          PaResult.out,
-          Offset(g.home.dx, g.outY + 12 * g.scale),
-          true,
-        ),
+        PaResult.out,
+        Offset(g.home.dx, g.outY + 12 * g.scale),
+        true,
+      ),
     };
 
     final questions = <_Question>[
@@ -243,10 +329,16 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
       _file(LoggedPlay(result: result));
     } else {
       widget.onPendingChanged(true);
+      unawaited(_persistDraft().catchError((Object _) {}));
     }
   }
 
-  void _answer(_Question question, {OutKind? kind, PaResult? result, int? rbi}) {
+  void _answer(
+    _Question question, {
+    OutKind? kind,
+    PaResult? result,
+    int? rbi,
+  }) {
     final pending = _pending;
     if (pending == null || pending.asking != question) return;
     unawaited(HapticFeedback.selectionClick());
@@ -261,6 +353,7 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
     }
     pending.questions.removeAt(0);
     if (pending.questions.isNotEmpty) {
+      unawaited(_persistDraft().catchError((Object _) {}));
       setState(() {});
       return;
     }
@@ -282,20 +375,66 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
       _settleHidden = false;
     });
     widget.onPendingChanged(false);
+    unawaited(_persistDraft(clear: true).catchError((Object _) {}));
   }
 
-  void _file(LoggedPlay play) {
-    widget.onCommit(play);
-    _justCommitted = true;
-    _settle?.cancel();
-    _settle = Timer(const Duration(milliseconds: 380), () {
+  Future<void> _sendRunner(String id) async {
+    if (_locked) return;
+    setState(() => _saving = true);
+    widget.onPendingChanged(true);
+    try {
+      await widget.onWave(id);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Runner not changed: $error')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+        widget.onPendingChanged(false);
+      }
+    }
+  }
+
+  Future<void> _file(LoggedPlay play) async {
+    if (_saving) return;
+    setState(() {
+      _saving = true;
+      _failedPlay = null;
+    });
+    widget.onPendingChanged(true);
+    try {
+      await _persistDraft(ready: play);
+      await widget.onCommit(play);
       if (!mounted) return;
       setState(() {
-        _settleTarget = null;
-        _settleHidden = false;
-        _chipEpoch += 1;
+        _justCommitted = true;
+        _saving = false;
       });
-    });
+      widget.onPendingChanged(false);
+      _settle?.cancel();
+      _settle = Timer(
+        MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 180),
+        () {
+          if (!mounted) return;
+          setState(() {
+            _settleTarget = null;
+            _settleHidden = false;
+            _chipEpoch += 1;
+          });
+        },
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _failedPlay = play;
+      });
+    }
   }
 
   // ------------------------------------------------------------------ build
@@ -307,7 +446,8 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
     final state = widget.state;
     final batter = state.batter;
     final dragging = _drag != null;
-    final tapsAllowed = widget.enabled && !dragging && !_locked && _settleTarget == null;
+    final tapsAllowed =
+        widget.enabled && !dragging && !_locked && _settleTarget == null;
 
     final chipPos = _drag ?? _settleTarget ?? g.home;
     final chipLabel = state.personal ? 'You' : (batter?.firstName ?? '');
@@ -315,12 +455,45 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (_failedPlay != null)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  'Play not saved.',
+                  style: context.text.bodySmall?.copyWith(color: field.on),
+                ),
+              ),
+              TextButton(
+                onPressed: () => _file(_failedPlay!),
+                child: const Text('Retry'),
+              ),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _failedPlay = null;
+                    _settleTarget = null;
+                    _settleHidden = false;
+                  });
+                  widget.onPendingChanged(false);
+                  unawaited(
+                    _persistDraft(clear: true).catchError((Object _) {}),
+                  );
+                },
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
         GestureDetector(
           behavior: HitTestBehavior.translucent,
           onPanStart: _onPanStart,
           onPanUpdate: _onPanUpdate,
           onPanEnd: (_) => _onPanEnd(),
-          onPanCancel: _onPanEnd,
+          onPanCancel: () => setState(() {
+            _drag = null;
+            _zone = null;
+          }),
           child: SizedBox(
             key: const Key('diamond'),
             width: g.width,
@@ -363,7 +536,9 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
                   child: GestureDetector(
                     key: const Key('zone-homeRun'),
                     behavior: HitTestBehavior.translucent,
-                    onTap: tapsAllowed ? () => _start(DiamondZone.homeRun) : null,
+                    onTap: tapsAllowed
+                        ? () => _start(DiamondZone.homeRun)
+                        : null,
                   ),
                 ),
                 for (final (zone, number) in const [
@@ -377,6 +552,11 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
                     scale: g.scale,
                     hot: _zone == zone,
                     occupied: state.replay.bases.at(number) != null,
+                    label: const [
+                      'Single or reach first',
+                      'Double',
+                      'Triple',
+                    ][number - 1],
                     onTap: tapsAllowed ? () => _start(zone) : null,
                   ),
                 _Plate(at: g.home, scale: g.scale),
@@ -405,12 +585,15 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
                       base: _baseOf[slot.playerId] ?? 0,
                       instant: _justArrived.contains(slot.playerId),
                       geometry: g,
-                      onTap: () => widget.onWave(slot.playerId),
+                      onTap: tapsAllowed
+                          ? () => _sendRunner(slot.playerId)
+                          : null,
                     ),
                 AnimatedPositioned(
                   key: const Key('batter-chip'),
-                  duration:
-                      dragging ? Duration.zero : const Duration(milliseconds: 420),
+                  duration: dragging || MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 420),
                   curve: Curves.easeOutCubic,
                   left: chipPos.dx,
                   top: chipPos.dy,
@@ -420,7 +603,9 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
                       child: TweenAnimationBuilder<double>(
                         key: ValueKey('chip-$_chipEpoch'),
                         tween: Tween(begin: 0, end: 1),
-                        duration: const Duration(milliseconds: 280),
+                        duration: MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : const Duration(milliseconds: 280),
                         builder: (context, fade, child) => Opacity(
                           opacity: _settleHidden ? 0 : fade,
                           child: child,
@@ -475,58 +660,58 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
     if (pending != null) {
       return switch (pending.asking) {
         _Question.how => _PillRow(
-            key: const Key('ask-how'),
-            onCancel: _cancel,
-            pills: [
-              for (final kind in OutKind.values)
-                _Pill(
-                  key: Key('how-${kind.wire}'),
-                  label: kind.label,
-                  tone: field.onOut,
-                  onTap: () => _answer(_Question.how, kind: kind),
-                ),
+          key: const Key('ask-how'),
+          onCancel: _cancel,
+          pills: [
+            for (final kind in OutKind.values)
               _Pill(
-                key: const Key('how-k'),
-                label: 'K',
+                key: Key('how-${kind.wire}'),
+                label: kind.label,
                 tone: field.onOut,
-                quiet: true,
-                onTap: () => _answer(_Question.how),
+                onTap: () => _answer(_Question.how, kind: kind),
               ),
-            ],
-          ),
+            _Pill(
+              key: const Key('how-k'),
+              label: 'K',
+              tone: field.onOut,
+              quiet: true,
+              onTap: () => _answer(_Question.how),
+            ),
+          ],
+        ),
         _Question.reach => _PillRow(
-            key: const Key('ask-reach'),
-            onCancel: _cancel,
-            pills: [
-              for (final (result, quiet) in const [
-                (PaResult.single, false),
-                (PaResult.walk, false),
-                (PaResult.reachOnError, true),
-                (PaResult.fieldersChoice, true),
-              ])
-                _Pill(
-                  key: Key('reach-${result.wire}'),
-                  label: result.label,
-                  tone: field.accent,
-                  quiet: quiet,
-                  onTap: () => _answer(_Question.reach, result: result),
-                ),
-            ],
-          ),
+          key: const Key('ask-reach'),
+          onCancel: _cancel,
+          pills: [
+            for (final (result, quiet) in const [
+              (PaResult.single, false),
+              (PaResult.walk, false),
+              (PaResult.reachOnError, true),
+              (PaResult.fieldersChoice, true),
+            ])
+              _Pill(
+                key: Key('reach-${result.wire}'),
+                label: result.label,
+                tone: field.accent,
+                quiet: quiet,
+                onTap: () => _answer(_Question.reach, result: result),
+              ),
+          ],
+        ),
         _Question.rbi => _PillRow(
-            key: const Key('ask-rbi'),
-            label: 'RBI',
-            onCancel: _cancel,
-            pills: [
-              for (var n = _minRbi(pending.result); n <= 4; n++)
-                _Pill(
-                  key: Key('rbi-$n'),
-                  label: '$n',
-                  tone: field.accent,
-                  onTap: () => _answer(_Question.rbi, rbi: n),
-                ),
-            ],
-          ),
+          key: const Key('ask-rbi'),
+          label: 'RBI',
+          onCancel: _cancel,
+          pills: [
+            for (var n = _minRbi(pending.result); n <= 4; n++)
+              _Pill(
+                key: Key('rbi-$n'),
+                label: '$n',
+                tone: field.accent,
+                onTap: () => _answer(_Question.rbi, rbi: n),
+              ),
+          ],
+        ),
       };
     }
 
@@ -576,10 +761,15 @@ class _PillRow extends StatelessWidget {
     final field = context.colors.field;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 200),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 200),
       builder: (context, t, child) => Opacity(
         opacity: t,
-        child: Transform.translate(offset: Offset(0, (1 - t) * 6), child: child),
+        child: Transform.translate(
+          offset: Offset(0, (1 - t) * 6),
+          child: child,
+        ),
       ),
       child: FittedBox(
         fit: BoxFit.scaleDown,
@@ -745,7 +935,9 @@ class _LinesPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_LinesPainter old) {
-    return old.fenceHot != fenceHot || old.geometry.width != geometry.width;
+    return old.fenceHot != fenceHot ||
+        old.geometry.width != geometry.width ||
+        old.palette != palette;
   }
 }
 
@@ -756,6 +948,7 @@ class _BaseMarker extends StatelessWidget {
     required this.scale,
     required this.hot,
     required this.occupied,
+    required this.label,
     required this.onTap,
   });
 
@@ -763,6 +956,7 @@ class _BaseMarker extends StatelessWidget {
   final double scale;
   final bool hot;
   final bool occupied;
+  final String label;
   final VoidCallback? onTap;
 
   @override
@@ -774,38 +968,45 @@ class _BaseMarker extends StatelessWidget {
       top: at.dy - hit / 2,
       width: hit,
       height: hit,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: onTap,
-        child: Center(
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            width: 15 * scale,
-            height: 15 * scale,
-            transform: Matrix4.identity()
-              ..translateByDouble(7.5 * scale, 7.5 * scale, 0, 1)
-              ..rotateZ(0.7853981633974483)
-              ..scaleByDouble(hot ? 1.25 : 1.0, hot ? 1.25 : 1.0, 1, 1)
-              ..translateByDouble(-7.5 * scale, -7.5 * scale, 0, 1),
-            decoration: BoxDecoration(
-              color: hot ? field.accent : field.surfaceHigh,
-              borderRadius: BorderRadius.circular(3),
-              border: Border.all(
-                color: hot || occupied ? field.accent : field.lineStrong,
-                width: 1.5,
+      child: Semantics(
+        label: label,
+        button: true,
+        enabled: onTap != null,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: onTap,
+          child: Center(
+            child: AnimatedContainer(
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 150),
+              width: 15 * scale,
+              height: 15 * scale,
+              transform: Matrix4.identity()
+                ..translateByDouble(7.5 * scale, 7.5 * scale, 0, 1)
+                ..rotateZ(0.7853981633974483)
+                ..scaleByDouble(hot ? 1.25 : 1.0, hot ? 1.25 : 1.0, 1, 1)
+                ..translateByDouble(-7.5 * scale, -7.5 * scale, 0, 1),
+              decoration: BoxDecoration(
+                color: hot ? field.accent : field.surfaceHigh,
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(
+                  color: hot || occupied ? field.accent : field.lineStrong,
+                  width: 1.5,
+                ),
+                boxShadow: hot
+                    ? [
+                        BoxShadow(
+                          color: field.accent.withValues(alpha: 0.16),
+                          spreadRadius: 7,
+                        ),
+                        BoxShadow(
+                          color: field.accent.withValues(alpha: 0.55),
+                          blurRadius: 18,
+                        ),
+                      ]
+                    : const [],
               ),
-              boxShadow: hot
-                  ? [
-                      BoxShadow(
-                        color: field.accent.withValues(alpha: 0.16),
-                        spreadRadius: 7,
-                      ),
-                      BoxShadow(
-                        color: field.accent.withValues(alpha: 0.55),
-                        blurRadius: 18,
-                      ),
-                    ]
-                  : const [],
             ),
           ),
         ),
@@ -859,7 +1060,7 @@ class _RunnerChip extends StatelessWidget {
   final int base;
   final bool instant;
   final FieldGeometry geometry;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -867,7 +1068,9 @@ class _RunnerChip extends StatelessWidget {
     final on = base > 0;
     final at = on ? geometry.base(base) : geometry.home;
     return AnimatedPositioned(
-      duration: instant ? Duration.zero : const Duration(milliseconds: 440),
+      duration: instant || MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 440),
       curve: Curves.easeOutCubic,
       left: at.dx,
       top: at.dy,
@@ -876,27 +1079,36 @@ class _RunnerChip extends StatelessWidget {
         child: IgnorePointer(
           ignoring: !on,
           child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 300),
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 300),
             opacity: on ? 1 : 0,
             child: Semantics(
               button: on,
               label: on ? '$name on base, tap to score' : null,
               child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: on ? onTap : null,
-                child: Container(
-                  height: 22,
-                  padding: const EdgeInsets.symmetric(horizontal: 9),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: field.surfaceHigh,
-                    borderRadius: BorderRadius.circular(11),
-                    border: Border.all(color: field.accent, width: 1.5),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 13,
+                    horizontal: 8,
                   ),
-                  child: Text(
-                    name,
-                    style: context.text.labelSmall?.copyWith(
-                      color: field.accent,
-                      fontWeight: FontWeight.w700,
+                  child: Container(
+                    height: 22,
+                    padding: const EdgeInsets.symmetric(horizontal: 9),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: field.surfaceHigh,
+                      borderRadius: BorderRadius.circular(11),
+                      border: Border.all(color: field.accent, width: 1.5),
+                    ),
+                    child: Text(
+                      name,
+                      style: context.text.labelSmall?.copyWith(
+                        color: field.accent,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
@@ -928,10 +1140,14 @@ class _BatterChip extends StatelessWidget {
     final background = enabled ? field.accent : field.surfaceHigh;
     final foreground = enabled ? field.onAccent : field.muted;
     return AnimatedScale(
-      duration: const Duration(milliseconds: 120),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 120),
       scale: dragging ? 1.12 : 1,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 150),
         height: 32,
         padding: const EdgeInsets.symmetric(horizontal: 13),
         decoration: BoxDecoration(
@@ -940,7 +1156,9 @@ class _BatterChip extends StatelessWidget {
           boxShadow: enabled
               ? [
                   BoxShadow(
-                    color: field.accent.withValues(alpha: dragging ? 0.45 : 0.35),
+                    color: field.accent.withValues(
+                      alpha: dragging ? 0.45 : 0.35,
+                    ),
                     blurRadius: dragging ? 30 : 22,
                     offset: Offset(0, dragging ? 14 : 8),
                   ),

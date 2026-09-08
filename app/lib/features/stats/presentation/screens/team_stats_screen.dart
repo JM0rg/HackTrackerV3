@@ -14,7 +14,10 @@ class TeamStatsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final teamId = ref.watch(currentTeamIdProvider);
     if (teamId == null) {
-      return const AppScaffold(title: 'Stats', body: Center(child: Text('Create a team first.')));
+      return const AppScaffold(
+        title: 'Stats',
+        body: Center(child: Text('Create a team first.')),
+      );
     }
     final games = ref.watch(gamesStreamProvider(teamId));
     final players = ref.watch(playersStreamProvider(teamId));
@@ -35,18 +38,26 @@ class TeamStatsScreen extends ConsumerWidget {
                 }(),
                 builder: (context, snap) {
                   final list = snap.data ?? [];
-                  final names = {for (final p in roster) p.id: '${p.firstName} ${p.lastName}'.trim()};
+                  final names = {
+                    for (final p in roster)
+                      p.id: '${p.firstName} ${p.lastName}'.trim(),
+                  };
                   final rolled = const StatsAggregator().rollup([
                     for (final pa in list)
                       PaInput(
                         playerId: pa.playerId,
-                        result: PaResult.fromWire(pa.result),
+                        result: PaResult.fromWire(
+                          pa.effectiveResult ?? pa.result,
+                        ),
                         rbi: pa.rbi,
                         runsScored: pa.runsScored,
                       ),
                   ]);
                   if (rolled.isEmpty) {
-                    return const Center(child: Text('Score a game to see lines.'));
+                    return const EmptyState(
+                      icon: Icons.bar_chart_rounded,
+                      title: 'No lines yet',
+                    );
                   }
                   return ListView(
                     children: [

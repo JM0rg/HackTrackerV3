@@ -86,11 +86,22 @@ void main() {
 
   Future<String> teamGame({String homeAway = 'away'}) async {
     final team = await tracker.createTeam(name: 'Club');
-    for (final (first, last) in const [('Ada', 'A'), ('Sam', 'B'), ('Kai', 'C')]) {
-      await tracker.upsertPlayer(teamId: team.id, firstName: first, lastName: last);
+    for (final (first, last) in const [
+      ('Ada', 'A'),
+      ('Sam', 'B'),
+      ('Kai', 'C'),
+    ]) {
+      await tracker.upsertPlayer(
+        teamId: team.id,
+        firstName: first,
+        lastName: last,
+      );
     }
     final roster = await tracker.players(team.id);
-    final gameId = await tracker.createGame(teamId: team.id, homeAway: homeAway);
+    final gameId = await tracker.createGame(
+      teamId: team.id,
+      homeAway: homeAway,
+    );
     await tracker.setLineup(
       teamId: team.id,
       gameId: gameId,
@@ -101,16 +112,66 @@ void main() {
 
   Future<Game> game(String id) async => (await tracker.game(id))!;
 
-  testWidgets('the card shows the batter, the diamond and one line of score',
-      (tester) async {
+  testWidgets('an unanswered play survives leaving and reopening field mode', (
+    tester,
+  ) async {
+    final gameId = await teamGame();
+    await pump(tester, gameId);
+    await dragChip(tester, toFirst(tester));
+    expect((await tracker.game(gameId))!.scoringDraft, isNotNull);
+    await finish(tester);
+    await pump(tester, gameId);
+    expect(find.byKey(const Key('reach-single')), findsOneWidget);
+    await answer(tester, 'reach-single');
+    expect((await scoring.plateAppearances(gameId)).length, 1);
+    expect((await tracker.game(gameId))!.scoringDraft, isNull);
+    await finish(tester);
+  });
+
+  testWidgets('handoff keeps scoring available and hides the game menu', (
+    tester,
+  ) async {
+    final id = await teamGame();
+    await pump(tester, id);
+    await tap(tester, find.byKey(const Key('field-handoff')));
+    expect(find.text('Done'), findsOneWidget);
+    expect(find.byTooltip('Game menu'), findsNothing);
+    await tap(tester, find.byKey(const Key('zone-second')));
+    expect((await scoring.plateAppearances(id)).length, 1);
+    await tap(tester, find.byKey(const Key('field-handoff')));
+    expect(find.byTooltip('Game menu'), findsOneWidget);
+    await finish(tester);
+  });
+
+  testWidgets('failed save retains the play for retry without duplication', (
+    tester,
+  ) async {
+    final id = await teamGame();
+    await pump(tester, id);
+    await db.customStatement(
+      "CREATE TRIGGER reject_save BEFORE UPDATE ON games BEGIN SELECT RAISE(ABORT, 'test failure'); END",
+    );
+    await tap(tester, find.byKey(const Key('zone-second')));
+    expect(find.text('Play not saved.'), findsOneWidget);
+    expect(await scoring.plateAppearances(id), isEmpty);
+    await db.customStatement('DROP TRIGGER reject_save');
+    await tap(tester, find.text('Retry'));
+    expect(find.text('Play not saved.'), findsNothing);
+    expect((await scoring.plateAppearances(id)).length, 1);
+    await finish(tester);
+  });
+
+  testWidgets('the card shows the batter, the diamond and one line of score', (
+    tester,
+  ) async {
     final gameId = await teamGame();
     await pump(tester, gameId);
 
-    expect(find.text('US'), findsOneWidget);
-    expect(find.text('THEM'), findsOneWidget);
     expect(find.byKey(const Key('us-runs')), findsOneWidget);
-    expect(find.textContaining('TOP 1'), findsOneWidget);
-    expect(find.textContaining('0 OUTS'), findsOneWidget);
+    expect(find.byKey(const Key('them-runs')), findsOneWidget);
+    expect(find.byKey(const Key('situation')), findsOneWidget);
+    expect(find.textContaining('Top 1'), findsOneWidget);
+    expect(find.textContaining('0 out'), findsOneWidget);
     expect(find.byKey(const Key('card-first')), findsOneWidget);
     expect(find.text('Ada A'), findsOneWidget);
     expect(find.text('0 for 0'), findsOneWidget);
@@ -203,8 +264,9 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('an unanswered play blocks the next drag until it is settled',
-      (tester) async {
+  testWidgets('an unanswered play blocks the next drag until it is settled', (
+    tester,
+  ) async {
     final gameId = await teamGame();
     await pump(tester, gameId);
 
@@ -237,8 +299,9 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('first base asks how they got there, walk included',
-      (tester) async {
+  testWidgets('first base asks how they got there, walk included', (
+    tester,
+  ) async {
     final gameId = await teamGame();
     await pump(tester, gameId);
 
@@ -253,14 +316,18 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('reaching on an error and a fielders choice are one tap each',
-      (tester) async {
+  testWidgets('reaching on an error and a fielders choice are one tap each', (
+    tester,
+  ) async {
     final gameId = await teamGame();
     await pump(tester, gameId);
 
     await dragChip(tester, toFirst(tester));
     await answer(tester, 'reach-reach_on_error');
-    expect((await scoring.plateAppearances(gameId)).single.result, 'reach_on_error');
+    expect(
+      (await scoring.plateAppearances(gameId)).single.result,
+      'reach_on_error',
+    );
 
     await dragChip(tester, toFirst(tester));
     await answer(tester, 'reach-fielders_choice');
@@ -333,8 +400,9 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('three outs flip to the opponent card; tap and swipe run it',
-      (tester) async {
+  testWidgets('three outs flip to the opponent card; tap and swipe run it', (
+    tester,
+  ) async {
     final gameId = await teamGame();
     await pump(tester, gameId);
 
@@ -346,23 +414,24 @@ void main() {
 
     await tap(tester, find.byKey(const Key('their-half')));
     await tap(tester, find.byKey(const Key('their-half')));
-    expect(
-      tester.widget<Text>(find.byKey(const Key('their-tally'))).data,
-      '2',
-    );
+    expect(tester.widget<Text>(find.byKey(const Key('their-tally'))).data, '2');
     expect((await game(gameId)).theirRuns, 2);
 
-    await tester.drag(find.byKey(const Key('their-half')), const Offset(0, -140));
+    await tester.drag(
+      find.byKey(const Key('their-half')),
+      const Offset(0, -140),
+    );
     await settle(tester);
 
     expect(find.text('RUNS THIS HALF'), findsNothing);
-    expect(find.textContaining('TOP 2'), findsOneWidget);
+    expect(find.textContaining('Top 2'), findsOneWidget);
     expect((await game(gameId)).theirRuns, 2);
     await finish(tester);
   });
 
-  testWidgets('swiping the name down undoes; sideways moves the order',
-      (tester) async {
+  testWidgets('swiping the name down undoes; sideways moves the order', (
+    tester,
+  ) async {
     final gameId = await teamGame();
     await pump(tester, gameId);
 
@@ -390,7 +459,10 @@ void main() {
     expect(find.text('On an error'), findsOneWidget);
 
     await tap(tester, find.byKey(const Key('fix-error')));
-    expect((await scoring.plateAppearances(gameId)).single.result, 'reach_on_error');
+    expect(
+      (await scoring.plateAppearances(gameId)).single.result,
+      'reach_on_error',
+    );
 
     await tap(tester, find.text('Done'));
     expect(find.textContaining('on an error'), findsOneWidget);
@@ -426,25 +498,25 @@ void main() {
     await dragChip(tester, toFirst(tester));
     await answer(tester, 'reach-single');
 
-    await tap(tester, find.text('THEM'));
+    // The situation line is what opens the log now.
+    await tap(tester, find.byKey(const Key('situation')));
     expect(find.text('This game'), findsOneWidget);
     expect(find.textContaining('1 plate appearance'), findsOneWidget);
     expect(find.textContaining('Ada singled'), findsWidgets);
     await finish(tester);
   });
 
-  testWidgets('my at-bats only: no score, your day is the hero',
-      (tester) async {
+  testWidgets('my at-bats only: no score, your day is the hero', (
+    tester,
+  ) async {
     await me.ensureMe();
     final gameId = await me.createPersonalGame(opponentName: 'Reds');
     await pump(tester, gameId);
 
     expect(find.byKey(const Key('us-runs')), findsNothing);
-    expect(find.text('US'), findsNothing);
     expect(find.byKey(const Key('your-day')), findsOneWidget);
     expect(find.byKey(const Key('opponent-pill')), findsOneWidget);
     expect(find.text('VS REDS'), findsOneWidget);
-    expect(find.byKey(const Key('our-run')), findsNothing);
     await finish(tester);
   });
 
@@ -456,8 +528,9 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('team scores: the hero, a teammate run, and a half ended by hand',
-      (tester) async {
+  testWidgets('team scores stay independent of RBI and halves end by hand', (
+    tester,
+  ) async {
     await me.ensureMe();
     final gameId = await me.createPersonalGame(
       opponentName: 'Reds',
@@ -467,28 +540,34 @@ void main() {
     await pump(tester, gameId);
 
     expect(find.byKey(const Key('us-runs')), findsOneWidget);
-    // No lineup, so no outs on the pill: just the half and inning.
-    expect(find.text('TOP 1'), findsOneWidget);
-    expect(find.byKey(const Key('our-run')), findsOneWidget);
-    expect(find.byKey(const Key('end-our-half')), findsOneWidget);
+    // No lineup, so no outs in the line: just the half and inning.
+    expect(find.textContaining('Top 1'), findsOneWidget);
 
-    await tap(tester, find.byKey(const Key('our-run')));
+    // Tapping our score adds one team run. RBI does not add it again.
+    await tap(tester, find.byKey(const Key('us-runs')));
     expect((await game(gameId)).ourRuns, 1);
 
     await dragChip(tester, toSecond(tester));
     await answer(tester, 'rbi-2');
-    expect((await game(gameId)).ourRuns, 3);
+    expect((await game(gameId)).ourRuns, 1);
 
-    await tap(tester, find.byKey(const Key('end-our-half')));
+    // Swiping the situation line ends our half.
+    await tester.fling(
+      find.byKey(const Key('situation')),
+      const Offset(-120, 0),
+      600,
+    );
+    await settle(tester);
     expect(find.text('RUNS THIS HALF'), findsOneWidget);
-    expect(find.byKey(const Key('our-run')), findsNothing);
 
     await tap(tester, find.byKey(const Key('their-half')));
     expect((await game(gameId)).theirRuns, 1);
-    await tester.drag(find.byKey(const Key('their-half')), const Offset(0, -140));
+    await tester.drag(
+      find.byKey(const Key('their-half')),
+      const Offset(0, -140),
+    );
     await settle(tester);
-    expect(find.textContaining('TOP 2'), findsOneWidget);
-    expect(find.byKey(const Key('our-run')), findsOneWidget);
+    expect(find.textContaining('Top 2'), findsOneWidget);
     await finish(tester);
   });
 
@@ -501,12 +580,13 @@ void main() {
     );
     await pump(tester, gameId);
     expect(find.text('RUNS THIS HALF'), findsOneWidget);
-    expect(find.textContaining('THEY BAT'), findsOneWidget);
+    expect(find.textContaining('they bat'), findsOneWidget);
     await finish(tester);
   });
 
-  testWidgets('a personal hit asks how, then RBI, before it files',
-      (tester) async {
+  testWidgets('a personal hit asks how, then RBI, before it files', (
+    tester,
+  ) async {
     await me.ensureMe();
     final gameId = await me.createPersonalGame(opponentName: 'Reds');
     await pump(tester, gameId);
@@ -555,8 +635,9 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('a personal home run starts at one RBI, never zero',
-      (tester) async {
+  testWidgets('a personal home run starts at one RBI, never zero', (
+    tester,
+  ) async {
     await me.ensureMe();
     final gameId = await me.createPersonalGame(opponentName: 'Reds');
     await pump(tester, gameId);
@@ -589,8 +670,9 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('a team hit points at the runner instead of asking for RBI',
-      (tester) async {
+  testWidgets('a team hit points at the runner instead of asking for RBI', (
+    tester,
+  ) async {
     final gameId = await teamGame();
     await pump(tester, gameId);
 
@@ -605,8 +687,9 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('no lineup: the chip is parked and the card says so',
-      (tester) async {
+  testWidgets('no lineup: the chip is parked and the card says so', (
+    tester,
+  ) async {
     final team = await tracker.createTeam(name: 'Club');
     final gameId = await tracker.createGame(teamId: team.id, homeAway: 'away');
     await pump(tester, gameId);

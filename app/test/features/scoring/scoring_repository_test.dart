@@ -1,3 +1,4 @@
+import 'package:hacktracker/core/domain/models/play_resolution.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hacktracker/core/domain/models/game_scope.dart';
@@ -39,7 +40,10 @@ void main() {
       );
     }
     final roster = await tracker.players(team.id);
-    final gameId = await tracker.createGame(teamId: team.id, homeAway: homeAway);
+    final gameId = await tracker.createGame(
+      teamId: team.id,
+      homeAway: homeAway,
+    );
     await tracker.setLineup(
       teamId: team.id,
       gameId: gameId,
@@ -50,15 +54,191 @@ void main() {
 
   Future<Game> reload(String gameId) async => (await tracker.game(gameId))!;
 
-  test('a home game opens with the opponent batting in the top of the first',
-      () async {
-    final (_, gameId, _) = await teamGame();
-    await scoring.enterFieldMode(await reload(gameId));
-    final game = await reload(gameId);
-    expect(game.currentInning, 1);
-    expect(game.currentHalf, 'top');
-    expect(game.status, 'live');
+  test('a selected runner scores without replacing another runner', () async {
+    final (_, gameId, roster) = await teamGame(homeAway: 'away', players: 4);
+    await scoring.recordPa(game: await reload(gameId), result: PaResult.single);
+    await scoring.recordPa(game: await reload(gameId), result: PaResult.single);
+    final pa = (await scoring.plateAppearances(gameId)).last;
+    await scoring.scoreRunner(
+      game: await reload(gameId),
+      paId: pa.id,
+      playerId: roster[1].id,
+    );
+    final replay = await scoring.replay(gameId);
+    expect(replay.ourRuns, 1);
+    expect(replay.bases.second, roster[0].id);
+    expect(replay.bases.first, isNull);
+    expect(replay.pas[1].runsScored, 1);
+    expect(replay.pas[0].runsScored, 0);
   });
+
+  test('a single plus error preserves hit credit with no extra RBI', () async {
+    final (_, gameId, roster) = await teamGame(homeAway: 'away');
+    await scoring.recordPa(game: await reload(gameId), result: PaResult.single);
+    final pa = (await scoring.plateAppearances(gameId)).single;
+    await scoring.setResolution(
+      game: await reload(gameId),
+      paId: pa.id,
+      resolution: PlayResolution(
+        runners: [RunnerDecision(playerId: roster[0].id, destination: 4)],
+      ),
+    );
+    final corrected = (await scoring.plateAppearances(gameId)).single;
+    expect(corrected.effectiveResult, 'single');
+    expect(corrected.rbi, 0);
+    expect(corrected.runsScored, 1);
+  });
+
+  test('a committed play clears its recovery draft atomically', () async {
+    final (_, gameId, _) = await teamGame(homeAway: 'away');
+    await scoring.saveDraft(gameId, '{"pending":true}');
+    await scoring.recordPa(game: await reload(gameId), result: PaResult.single);
+    expect((await reload(gameId)).scoringDraft, isNull);
+  });
+
+  test('wrong batter correction moves the hit and updates the bases', () async {
+    final (_, gameId, roster) = await teamGame(homeAway: 'away');
+    await scoring.recordPa(game: await reload(gameId), result: PaResult.single);
+    final pa = (await scoring.plateAppearances(gameId)).single;
+    await scoring.changeBatter(
+      game: await reload(gameId),
+      paId: pa.id,
+      playerId: roster[2].id,
+    );
+    expect(
+      (await scoring.plateAppearances(gameId)).single.playerId,
+      roster[2].id,
+    );
+    expect((await scoring.replay(gameId)).bases.first, roster[2].id);
+  });
+
+  test('game rules remain frozen when the team changes next season', () async {
+    final (teamId, gameId, _) = await teamGame(homeAway: 'away');
+    await tracker.updateTeamSettings(teamId, {
+      'rules': {'hrLimit': 0},
+    });
+    await scoring.recordPa(game: await reload(gameId), result: PaResult.homer);
+    expect((await reload(gameId)).ourRuns, 1);
+    expect(
+      (await scoring.plateAppearances(gameId)).single.effectiveResult,
+      'homer',
+    );
+  });
+
+  test(
+    'excess home runs keep requested result but project out for stats',
+    () async {
+      final team = await tracker.createTeam(name: 'Limited');
+      await tracker.updateTeamSettings(team.id, {
+        'rules': {'hrLimit': 0},
+      });
+      await tracker.upsertPlayer(teamId: team.id, firstName: 'Sam');
+      final roster = await tracker.players(team.id);
+      final gameId = await tracker.createGame(
+        teamId: team.id,
+        homeAway: 'away',
+      );
+      await tracker.setLineup(
+        teamId: team.id,
+        gameId: gameId,
+        playerIds: [roster.single.id],
+      );
+      await scoring.recordPa(
+        game: await reload(gameId),
+        result: PaResult.homer,
+      );
+      final pa = (await scoring.plateAppearances(gameId)).single;
+      expect(pa.result, 'homer');
+      expect(pa.effectiveResult, 'out');
+      expect((await reload(gameId)).ourRuns, 0);
+    },
+  );
+
+  test(
+    'a runner scoring on a later hit receives the run in stored stats',
+    () async {
+      final (_, gameId, _) = await teamGame(homeAway: 'away');
+      await scoring.recordPa(
+        game: await reload(gameId),
+        result: PaResult.single,
+      );
+      await scoring.recordPa(
+        game: await reload(gameId),
+        result: PaResult.homer,
+      );
+      final pas = await scoring.plateAppearances(gameId);
+      expect(pas.map((p) => p.runsScored), [1, 1]);
+      expect(pas.map((p) => p.rbi), [0, 2]);
+      await scoring.undoLast(await reload(gameId));
+      expect((await scoring.plateAppearances(gameId)).single.runsScored, 0);
+    },
+  );
+
+  test('correcting a final game does not reopen it', () async {
+    final (_, gameId, _) = await teamGame(homeAway: 'away');
+    await scoring.recordPa(game: await reload(gameId), result: PaResult.single);
+    await scoring.finalizeGame(await reload(gameId));
+    final pa = (await scoring.plateAppearances(gameId)).single;
+    await scoring.changePaResult(
+      game: await reload(gameId),
+      paId: pa.id,
+      result: PaResult.double,
+    );
+    expect((await reload(gameId)).status, 'final');
+    await scoring.reopenGame(await reload(gameId));
+    expect((await reload(gameId)).status, 'live');
+  });
+
+  test(
+    'failed projection write rolls back the entire plate appearance',
+    () async {
+      final (_, gameId, _) = await teamGame(homeAway: 'away');
+      await db.customStatement(
+        "CREATE TRIGGER reject_game_update BEFORE UPDATE ON games BEGIN SELECT RAISE(ABORT, 'injected disk failure'); END",
+      );
+      await expectLater(
+        scoring.recordPa(game: await reload(gameId), result: PaResult.homer),
+        throwsA(anything),
+      );
+      expect(await scoring.plateAppearances(gameId), isEmpty);
+      expect((await reload(gameId)).ourRuns, 0);
+      await db.customStatement('DROP TRIGGER reject_game_update');
+      await scoring.recordPa(
+        game: await reload(gameId),
+        result: PaResult.homer,
+      );
+      expect((await scoring.plateAppearances(gameId)).length, 1);
+      expect((await reload(gameId)).ourRuns, 1);
+    },
+  );
+
+  test(
+    'concurrent local commands allocate distinct sequence and batters',
+    () async {
+      final (_, gameId, roster) = await teamGame(homeAway: 'away');
+      final game = await reload(gameId);
+      await Future.wait([
+        scoring.recordPa(game: game, result: PaResult.single),
+        scoring.recordPa(game: game, result: PaResult.double),
+      ]);
+      final pas = await scoring.plateAppearances(gameId);
+      expect(pas.map((p) => p.sequence).toSet().length, 2);
+      expect(pas.map((p) => p.playerId).toSet(), {roster[0].id, roster[1].id});
+      expect((await reload(gameId)).currentBatterIndex, 2);
+    },
+  );
+
+  test(
+    'a home game opens with the opponent batting in the top of the first',
+    () async {
+      final (_, gameId, _) = await teamGame();
+      await scoring.enterFieldMode(await reload(gameId));
+      final game = await reload(gameId);
+      expect(game.currentInning, 1);
+      expect(game.currentHalf, 'top');
+      expect(game.status, 'live');
+    },
+  );
 
   test('an away game opens with us batting', () async {
     final (_, gameId, _) = await teamGame(homeAway: 'away');
@@ -139,25 +319,27 @@ void main() {
     expect(updated.last.rbi, 1);
   });
 
-  test('changing a play three batters back replays everything after it',
-      () async {
-    final (_, gameId, _) = await teamGame();
-    for (final result in [PaResult.out, PaResult.single, PaResult.single]) {
-      await scoring.recordPa(game: await reload(gameId), result: result);
-    }
-    expect((await reload(gameId)).ourRuns, 0);
+  test(
+    'changing a play three batters back replays everything after it',
+    () async {
+      final (_, gameId, _) = await teamGame();
+      for (final result in [PaResult.out, PaResult.single, PaResult.single]) {
+        await scoring.recordPa(game: await reload(gameId), result: result);
+      }
+      expect((await reload(gameId)).ourRuns, 0);
 
-    final pas = await scoring.plateAppearances(gameId);
-    await scoring.changePaResult(
-      game: await reload(gameId),
-      paId: pas.first.id,
-      result: PaResult.homer,
-    );
-    final game = await reload(gameId);
-    expect(game.ourRuns, 1);
-    expect(game.outs, 0);
-    expect(game.secondBaseId, isNotNull);
-  });
+      final pas = await scoring.plateAppearances(gameId);
+      await scoring.changePaResult(
+        game: await reload(gameId),
+        paId: pas.first.id,
+        result: PaResult.homer,
+      );
+      final game = await reload(gameId);
+      expect(game.ourRuns, 1);
+      expect(game.outs, 0);
+      expect(game.secondBaseId, isNotNull);
+    },
+  );
 
   test('deleting a play from the middle keeps the rest in order', () async {
     final (_, gameId, _) = await teamGame();
@@ -244,11 +426,18 @@ void main() {
   });
 
   test('team rules reach the engine: the home run limit applies', () async {
-    final (teamId, gameId, _) = await teamGame();
-    await tracker.updateTeamSettings(teamId, {
-      'modules': <String, dynamic>{},
+    final team = await tracker.createTeam(name: 'Limit');
+    await tracker.updateTeamSettings(team.id, {
       'rules': {'hrLimit': 1},
     });
+    await tracker.upsertPlayer(teamId: team.id, firstName: 'Sam');
+    final roster = await tracker.players(team.id);
+    final gameId = await tracker.createGame(teamId: team.id);
+    await tracker.setLineup(
+      teamId: team.id,
+      gameId: gameId,
+      playerIds: [roster.single.id],
+    );
     await scoring.recordPa(game: await reload(gameId), result: PaResult.homer);
     await scoring.recordPa(game: await reload(gameId), result: PaResult.homer);
     final game = await reload(gameId);
@@ -290,65 +479,127 @@ void main() {
       final (_, gameId, _) = await teamGame();
       await scoring.recordPa(game: await reload(gameId), result: PaResult.out);
       final pa = (await scoring.plateAppearances(gameId)).single;
-      await scoring.setOutKind(game: await reload(gameId), paId: pa.id, kind: OutKind.fly);
+      await scoring.setOutKind(
+        game: await reload(gameId),
+        paId: pa.id,
+        kind: OutKind.fly,
+      );
       final after = (await scoring.plateAppearances(gameId)).single;
       expect(after.result, 'out');
       expect(after.outKind, 'fly');
     });
 
-    test('K is its own result, and picking a kind turns it back into an out',
-        () async {
-      final (_, gameId, _) = await teamGame();
-      await scoring.recordPa(game: await reload(gameId), result: PaResult.out);
-      final pa = (await scoring.plateAppearances(gameId)).single;
-      await scoring.setOutKind(game: await reload(gameId), paId: pa.id, kind: null);
-      expect((await scoring.plateAppearances(gameId)).single.result, 'strikeout');
-      await scoring.setOutKind(game: await reload(gameId), paId: pa.id, kind: OutKind.ground);
-      final after = (await scoring.plateAppearances(gameId)).single;
-      expect(after.result, 'out');
-      expect(after.outKind, 'ground');
-    });
+    test(
+      'K is its own result, and picking a kind turns it back into an out',
+      () async {
+        final (_, gameId, _) = await teamGame();
+        await scoring.recordPa(
+          game: await reload(gameId),
+          result: PaResult.out,
+        );
+        final pa = (await scoring.plateAppearances(gameId)).single;
+        await scoring.setOutKind(
+          game: await reload(gameId),
+          paId: pa.id,
+          kind: null,
+        );
+        expect(
+          (await scoring.plateAppearances(gameId)).single.result,
+          'strikeout',
+        );
+        await scoring.setOutKind(
+          game: await reload(gameId),
+          paId: pa.id,
+          kind: OutKind.ground,
+        );
+        final after = (await scoring.plateAppearances(gameId)).single;
+        expect(after.result, 'out');
+        expect(after.outKind, 'ground');
+      },
+    );
 
     test('a run on a fly out is a sacrifice fly', () async {
       final (_, gameId, _) = await teamGame();
-      await scoring.recordPa(game: await reload(gameId), result: PaResult.triple);
+      await scoring.recordPa(
+        game: await reload(gameId),
+        result: PaResult.triple,
+      );
       await scoring.recordPa(game: await reload(gameId), result: PaResult.out);
       final pa = (await scoring.plateAppearances(gameId)).last;
-      await scoring.setOutKind(game: await reload(gameId), paId: pa.id, kind: OutKind.fly);
-      await scoring.setRunScoredOnOut(game: await reload(gameId), paId: pa.id, scored: true);
+      await scoring.setOutKind(
+        game: await reload(gameId),
+        paId: pa.id,
+        kind: OutKind.fly,
+      );
+      await scoring.setRunScoredOnOut(
+        game: await reload(gameId),
+        paId: pa.id,
+        scored: true,
+      );
       final after = (await scoring.plateAppearances(gameId)).last;
       expect(after.result, 'sac_fly');
       expect(after.rbi, 1);
       expect((await reload(gameId)).ourRuns, 1);
     });
 
-    test('a run on a groundout is an RBI groundout, and the at-bat counts',
-        () async {
-      final (_, gameId, _) = await teamGame();
-      await scoring.recordPa(game: await reload(gameId), result: PaResult.triple);
-      await scoring.recordPa(game: await reload(gameId), result: PaResult.out);
-      final pa = (await scoring.plateAppearances(gameId)).last;
-      await scoring.setRunScoredOnOut(game: await reload(gameId), paId: pa.id, scored: true);
-      expect((await scoring.plateAppearances(gameId)).last.result, 'sac_fly');
+    test(
+      'a run on a groundout is an RBI groundout, and the at-bat counts',
+      () async {
+        final (_, gameId, _) = await teamGame();
+        await scoring.recordPa(
+          game: await reload(gameId),
+          result: PaResult.triple,
+        );
+        await scoring.recordPa(
+          game: await reload(gameId),
+          result: PaResult.out,
+        );
+        final pa = (await scoring.plateAppearances(gameId)).last;
+        await scoring.setRunScoredOnOut(
+          game: await reload(gameId),
+          paId: pa.id,
+          scored: true,
+        );
+        expect((await scoring.plateAppearances(gameId)).last.result, 'sac_fly');
 
-      await scoring.setOutKind(game: await reload(gameId), paId: pa.id, kind: OutKind.ground);
-      final after = (await scoring.plateAppearances(gameId)).last;
-      expect(after.result, 'out');
-      expect(after.runsOnPlay, 1);
-      expect(after.rbi, 1);
-      expect((await reload(gameId)).ourRuns, 1);
-    });
+        await scoring.setOutKind(
+          game: await reload(gameId),
+          paId: pa.id,
+          kind: OutKind.ground,
+        );
+        final after = (await scoring.plateAppearances(gameId)).last;
+        expect(after.result, 'out');
+        expect(after.runsOnPlay, 1);
+        expect(after.rbi, 1);
+        expect((await reload(gameId)).ourRuns, 1);
+      },
+    );
 
     test('waving a runner home on a fly out makes it a sac fly', () async {
       final (_, gameId, _) = await teamGame();
-      await scoring.recordPa(game: await reload(gameId), result: PaResult.triple);
+      await scoring.recordPa(
+        game: await reload(gameId),
+        result: PaResult.triple,
+      );
       await scoring.recordPa(game: await reload(gameId), result: PaResult.out);
       final pa = (await scoring.plateAppearances(gameId)).last;
-      await scoring.setOutKind(game: await reload(gameId), paId: pa.id, kind: OutKind.fly);
-      await scoring.setRunsOnPlay(game: await reload(gameId), paId: pa.id, runs: 1);
+      await scoring.setOutKind(
+        game: await reload(gameId),
+        paId: pa.id,
+        kind: OutKind.fly,
+      );
+      await scoring.setRunsOnPlay(
+        game: await reload(gameId),
+        paId: pa.id,
+        runs: 1,
+      );
       expect((await scoring.plateAppearances(gameId)).last.result, 'sac_fly');
 
-      await scoring.setRunsOnPlay(game: await reload(gameId), paId: pa.id, runs: 0);
+      await scoring.setRunsOnPlay(
+        game: await reload(gameId),
+        paId: pa.id,
+        runs: 0,
+      );
       final after = (await scoring.plateAppearances(gameId)).last;
       expect(after.result, 'out');
       expect(after.outKind, 'fly');
@@ -359,16 +610,31 @@ void main() {
       final (_, gameId, _) = await teamGame();
       await scoring.recordPa(game: await reload(gameId), result: PaResult.out);
       final pa = (await scoring.plateAppearances(gameId)).single;
-      await scoring.setOutKind(game: await reload(gameId), paId: pa.id, kind: OutKind.line);
-      await scoring.changePaResult(game: await reload(gameId), paId: pa.id, result: PaResult.single);
+      await scoring.setOutKind(
+        game: await reload(gameId),
+        paId: pa.id,
+        kind: OutKind.line,
+      );
+      await scoring.changePaResult(
+        game: await reload(gameId),
+        paId: pa.id,
+        result: PaResult.single,
+      );
       expect((await scoring.plateAppearances(gameId)).single.outKind, isNull);
     });
 
     test('a kind is ignored on anything that is not an out', () async {
       final (_, gameId, _) = await teamGame();
-      await scoring.recordPa(game: await reload(gameId), result: PaResult.single);
+      await scoring.recordPa(
+        game: await reload(gameId),
+        result: PaResult.single,
+      );
       final pa = (await scoring.plateAppearances(gameId)).single;
-      await scoring.setOutKind(game: await reload(gameId), paId: pa.id, kind: OutKind.fly);
+      await scoring.setOutKind(
+        game: await reload(gameId),
+        paId: pa.id,
+        kind: OutKind.fly,
+      );
       final after = (await scoring.plateAppearances(gameId)).single;
       expect(after.result, 'single');
       expect(after.outKind, isNull);
@@ -392,24 +658,31 @@ void main() {
       expect((await scoring.replay(home.id)).weBat, isFalse);
     });
 
-    test('teammate runs tally, then our half ends by hand', () async {
-      final id = await scored();
-      await scoring.recordPa(game: await reload(id), result: PaResult.double);
-      final pa = (await scoring.plateAppearances(id)).single;
-      await scoring.setRunsOnPlay(game: await reload(id), paId: pa.id, runs: 1);
-      await scoring.bumpOurHalfRuns(game: await reload(id), delta: 1);
-      await scoring.bumpOurHalfRuns(game: await reload(id), delta: 1);
-      expect((await reload(id)).ourRuns, 3);
+    test(
+      'team runs tally independently of RBI, then our half ends by hand',
+      () async {
+        final id = await scored();
+        await scoring.recordPa(game: await reload(id), result: PaResult.double);
+        final pa = (await scoring.plateAppearances(id)).single;
+        await scoring.setRunsOnPlay(
+          game: await reload(id),
+          paId: pa.id,
+          runs: 1,
+        );
+        await scoring.bumpOurHalfRuns(game: await reload(id), delta: 1);
+        await scoring.bumpOurHalfRuns(game: await reload(id), delta: 1);
+        expect((await reload(id)).ourRuns, 2);
 
-      await scoring.endOurHalf(await reload(id));
-      final game = await reload(id);
-      expect(game.ourHalfRuns, 0);
-      expect(game.ourRuns, 3);
-      expect(game.currentHalf, 'bottom');
-      final events = await scoring.gameEvents(id);
-      expect(events.single.kind, GameEventKind.ourHalf);
-      expect(events.single.runs, 2);
-    });
+        await scoring.endOurHalf(await reload(id));
+        final game = await reload(id);
+        expect(game.ourHalfRuns, 0);
+        expect(game.ourRuns, 2);
+        expect(game.currentHalf, 'bottom');
+        final events = await scoring.gameEvents(id);
+        expect(events.single.kind, GameEventKind.ourHalf);
+        expect(events.single.runs, 2);
+      },
+    );
 
     test('undo after ending our half reopens the tally', () async {
       final id = await scored();
@@ -422,21 +695,23 @@ void main() {
       expect(await scoring.gameEvents(id), isEmpty);
     });
 
-    test('their half works like a team game and the line score is kept',
-        () async {
-      final id = await scored();
-      await scoring.bumpOurHalfRuns(game: await reload(id), delta: 1);
-      await scoring.endOurHalf(await reload(id));
-      await scoring.bumpTheirHalfRuns(game: await reload(id), delta: 3);
-      await scoring.endTheirHalf(await reload(id));
-      final game = await reload(id);
-      expect(game.currentInning, 2);
-      expect(game.currentHalf, 'top');
-      expect(game.theirRuns, 3);
-      final innings = await scoring.watchInnings(id).first;
-      expect(innings.single.ourRuns, 1);
-      expect(innings.single.theirRuns, 3);
-    });
+    test(
+      'their half works like a team game and the line score is kept',
+      () async {
+        final id = await scored();
+        await scoring.bumpOurHalfRuns(game: await reload(id), delta: 1);
+        await scoring.endOurHalf(await reload(id));
+        await scoring.bumpTheirHalfRuns(game: await reload(id), delta: 3);
+        await scoring.endTheirHalf(await reload(id));
+        final game = await reload(id);
+        expect(game.currentInning, 2);
+        expect(game.currentHalf, 'top');
+        expect(game.theirRuns, 3);
+        final innings = await scoring.watchInnings(id).first;
+        expect(innings.single.ourRuns, 1);
+        expect(innings.single.theirRuns, 3);
+      },
+    );
 
     test('switching scope keeps every at-bat', () async {
       final id = await scored();
@@ -489,7 +764,10 @@ void main() {
 
     test('opponent and playing-with are optional', () async {
       await me.ensureMe();
-      final id = await me.createPersonalGame(opponentName: '  ', playedForName: '');
+      final id = await me.createPersonalGame(
+        opponentName: '  ',
+        playedForName: '',
+      );
       final game = await reload(id);
       expect(game.opponentName, isNull);
       expect(game.playedForName, isNull);

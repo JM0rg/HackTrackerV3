@@ -1,3 +1,4 @@
+import 'package:hacktracker/core/domain/models/play_resolution.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hacktracker/core/domain/models/team_settings.dart';
 import 'package:hacktracker/core/domain/pa_result.dart';
@@ -27,6 +28,89 @@ void main() {
       runsOverride: runs,
     );
   }
+
+  test(
+    'explicit destinations record a double play and cancel force-out runs',
+    () {
+      final play = engine.apply(
+        before: const BaseState(first: 'A', third: 'C'),
+        result: PaResult.out,
+        batterId: 'B',
+        outsBefore: 1,
+        resolution: const PlayResolution(
+          runners: [
+            RunnerDecision(playerId: 'B', destination: 0),
+            RunnerDecision(playerId: 'A', destination: 0),
+            RunnerDecision(playerId: 'C', destination: 4, rbi: true),
+          ],
+        ),
+      );
+      expect(play.outsAdded, 2);
+      expect(play.runs, 0);
+      expect(play.rbi, 0);
+      expect(play.inningEnded, true);
+    },
+  );
+
+  test('explicit destination rejects missing or duplicated runners', () {
+    expect(
+      () => engine.apply(
+        before: const BaseState(first: 'A'),
+        result: PaResult.single,
+        batterId: 'B',
+        outsBefore: 0,
+        resolution: const PlayResolution(
+          runners: [RunnerDecision(playerId: 'B', destination: 1)],
+        ),
+      ),
+      throwsFormatException,
+    );
+  });
+
+  test('timing play counts a run before a non-force third out', () {
+    final play = engine.apply(
+      before: const BaseState(third: 'A'),
+      result: PaResult.single,
+      batterId: 'B',
+      outsBefore: 2,
+      resolution: const PlayResolution(
+        thirdOutNegatesRuns: false,
+        runners: [
+          RunnerDecision(playerId: 'B', destination: 0),
+          RunnerDecision(playerId: 'A', destination: 4, rbi: true),
+        ],
+      ),
+    );
+    expect(play.runs, 1);
+    expect(play.rbi, 1);
+    expect(play.inningEnded, true);
+  });
+
+  test('a third-out force cannot be adjusted into a scoring play', () {
+    final play = apply(
+      const BaseState(first: 'R1', third: 'R3'),
+      PaResult.fieldersChoice,
+      outs: 2,
+      runs: 1,
+    );
+    expect(play.runs, 0);
+    expect(play.rbi, 0);
+    expect(play.maxRuns, 0);
+    expect(play.inningEnded, isTrue);
+  });
+
+  test('a caught fly with two outs is not a sacrifice', () {
+    final play = apply(const BaseState(third: 'R3'), PaResult.sacFly, outs: 2);
+    expect(play.effectiveResult, PaResult.out);
+    expect(play.runs, 0);
+    expect(play.rbi, 0);
+  });
+
+  test('a walk cannot score an unforced runner through the run override', () {
+    final play = apply(const BaseState(third: 'R3'), PaResult.walk, runs: 1);
+    expect(play.runs, 0);
+    expect(play.bases.third, 'R3');
+  });
 
   group('advancement', () {
     test('empty-bases single puts batter on first', () {
@@ -218,7 +302,12 @@ void main() {
 
     test('under the limit a home run is still a home run', () {
       const rules = TeamRules(hrLimit: 3);
-      final r = apply(BaseState.empty, PaResult.homer, rules: rules, homeRuns: 2);
+      final r = apply(
+        BaseState.empty,
+        PaResult.homer,
+        rules: rules,
+        homeRuns: 2,
+      );
       expect(r.effectiveResult, PaResult.homer);
       expect(r.rbi, 1);
     });

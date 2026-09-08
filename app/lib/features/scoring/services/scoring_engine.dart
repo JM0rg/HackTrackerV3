@@ -1,3 +1,4 @@
+import 'package:hacktracker/core/domain/models/play_resolution.dart';
 import 'package:hacktracker/core/domain/models/team_settings.dart';
 import 'package:hacktracker/core/domain/pa_result.dart';
 
@@ -14,7 +15,9 @@ class BaseState {
   bool get isEmpty => first == null && second == null && third == null;
 
   int get runnerCount =>
-      (first == null ? 0 : 1) + (second == null ? 0 : 1) + (third == null ? 0 : 1);
+      (first == null ? 0 : 1) +
+      (second == null ? 0 : 1) +
+      (third == null ? 0 : 1);
 
   String? at(int base) {
     return switch (base) {
@@ -110,16 +113,48 @@ class ScoringEngine {
     bool batterIsMale = false,
     int teamHomeRunsSoFar = 0,
     int? runsOverride,
+    PlayResolution? resolution,
   }) {
-    final effective = _effectiveResult(result, rules, teamHomeRunsSoFar);
+    final ruled = _effectiveResult(result, rules, teamHomeRunsSoFar);
+    final effective = ruled == PaResult.sacFly && outsBefore >= 2
+        ? PaResult.out
+        : ruled;
+    if (resolution != null) {
+      return resolve(
+        before: before,
+        result: effective,
+        batterId: batterId,
+        outsBefore: outsBefore,
+        resolution: resolution,
+      );
+    }
     final play = _play(before, effective, batterId, rules, batterIsMale);
 
+    // Current out results retire the batter before first or a preceding
+    // runner on a choice. None can score a run as the third out.
+    final thirdOut = outsBefore + play.outsAdded >= 3;
+    if (thirdOut) {
+      return PlayOutcome(
+        bases: BaseState.empty,
+        outsAdded: play.outsAdded,
+        runs: 0,
+        rbi: 0,
+        scoredPlayerIds: const [],
+        batterScored: false,
+        effectiveResult: effective,
+        naturalRuns: 0,
+        minRuns: 0,
+        maxRuns: 0,
+        inningEnded: true,
+      );
+    }
     final naturalRuns = play.scored.length;
     // Forced runs (walks, home runs) can never be held up.
-    final canHold =
-        effective != PaResult.homer && effective != PaResult.walk;
+    final canHold = effective != PaResult.homer && effective != PaResult.walk;
     final minRuns = canHold ? _minRuns(play) : naturalRuns;
-    final maxRuns = naturalRuns + play.bases.runnerCount;
+    final maxRuns = effective == PaResult.walk
+        ? naturalRuns
+        : naturalRuns + play.bases.runnerCount;
 
     final target = runsOverride == null
         ? naturalRuns
@@ -152,6 +187,107 @@ class ScoringEngine {
       minRuns: minRuns,
       maxRuns: maxRuns,
       inningEnded: outsBefore + adjusted.outsAdded >= 3,
+    );
+  }
+
+  PlayOutcome resolve({
+    required BaseState before,
+    required PaResult result,
+    required String batterId,
+    required int outsBefore,
+    required PlayResolution resolution,
+  }) {
+    final expected = {
+      batterId,
+      if (before.first != null) before.first!,
+      if (before.second != null) before.second!,
+      if (before.third != null) before.third!,
+    };
+    final ids = resolution.runners.map((r) => r.playerId).toSet();
+    if (ids.length != resolution.runners.length ||
+        ids.length != expected.length ||
+        !ids.containsAll(expected)) {
+      throw const FormatException(
+        'Review this play: the runners changed after an earlier correction.',
+      );
+    }
+    var bases = BaseState.empty;
+    final scored = <String>[];
+    var outs = 0;
+    var rbi = 0;
+    for (final runner in resolution.runners) {
+      final destination = runner.destination;
+      if (destination < 0 || destination > 4) {
+        throw const FormatException('Invalid runner destination.');
+      }
+      if (destination == 0) {
+        outs++;
+      } else if (destination == 4) {
+        scored.add(runner.playerId);
+        if (runner.rbi) rbi++;
+      } else {
+        if (bases.at(destination) != null) {
+          throw const FormatException(
+            'Two runners cannot occupy the same base.',
+          );
+        }
+        bases = bases.withBase(destination, runner.playerId);
+      }
+    }
+    if (outsBefore + outs > 3) {
+      throw const FormatException('A half inning has only three outs.');
+    }
+    final batter = resolution.runners.firstWhere((r) => r.playerId == batterId);
+    if ((result == PaResult.out ||
+            result == PaResult.strikeout ||
+            result == PaResult.sacFly) &&
+        batter.destination != 0) {
+      throw const FormatException(
+        'An out result must retire the batter. Change the hit result first.',
+      );
+    }
+    if (result == PaResult.homer &&
+        resolution.runners.any((r) => r.destination != 4)) {
+      throw const FormatException('A home run scores every runner.');
+    }
+    if (result == PaResult.fieldersChoice && outs == 0) {
+      throw const FormatException(
+        'Choose the runner retired on the fielder’s choice.',
+      );
+    }
+    if (result.isHit &&
+        batter.destination > 0 &&
+        batter.destination < result.basesTaken) {
+      throw const FormatException(
+        'The batter cannot finish behind the credited hit.',
+      );
+    }
+    final ended = outsBefore + outs == 3;
+    if (ended &&
+        (resolution.thirdOutNegatesRuns ||
+            (outsBefore == 2 &&
+                batter.destination == 0 &&
+                result.recordsOut))) {
+      scored.clear();
+      rbi = 0;
+    }
+    var effective = result;
+    if (result == PaResult.sacFly && (outsBefore >= 2 || scored.isEmpty)) {
+      effective = PaResult.out;
+    }
+    if (!effective.earnsRbi || (outs >= 2 && result == PaResult.out)) rbi = 0;
+    return PlayOutcome(
+      bases: ended ? BaseState.empty : bases,
+      outsAdded: outs,
+      runs: scored.length,
+      rbi: rbi,
+      scoredPlayerIds: scored,
+      batterScored: scored.contains(batterId),
+      effectiveResult: effective,
+      naturalRuns: scored.length,
+      minRuns: scored.length,
+      maxRuns: scored.length,
+      inningEnded: ended,
     );
   }
 
@@ -330,7 +466,7 @@ class ScoringEngine {
 
 class _Play {
   _Play({required this.bases, this.outsAdded = 0, List<ScoredRunner>? scored})
-      : scored = scored ?? const [];
+    : scored = scored ?? const [];
 
   final BaseState bases;
   final int outsAdded;

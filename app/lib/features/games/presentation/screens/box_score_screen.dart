@@ -5,6 +5,7 @@ import 'package:hacktracker/core/domain/pa_result.dart';
 import 'package:hacktracker/core/theme/theme_context_extensions.dart';
 import 'package:hacktracker/core/widgets/app_widgets.dart';
 import 'package:hacktracker/database/app_database.dart';
+import 'package:hacktracker/features/games/presentation/widgets/line_score.dart';
 import 'package:hacktracker/features/stats/services/stats_aggregator.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -43,26 +44,32 @@ class BoxScoreScreen extends ConsumerWidget {
           return players.when(
             data: (roster) {
               final names = {
-                for (final p in roster) p.id: '${p.firstName} ${p.lastName}'.trim(),
+                for (final p in roster)
+                  p.id: '${p.firstName} ${p.lastName}'.trim(),
               };
               final rolled = const StatsAggregator().rollup([
                 for (final pa in list)
                   PaInput(
                     playerId: pa.playerId,
-                    result: PaResult.fromWire(pa.result),
+                    result: PaResult.fromWire(pa.effectiveResult ?? pa.result),
                     rbi: pa.rbi,
                     runsScored: pa.runsScored,
                   ),
               ]);
               if (rolled.isEmpty) {
-                return Center(
-                  child: Text('No plays yet.', style: context.text.bodyMedium),
+                return const EmptyState(
+                  icon: Icons.sports_baseball_outlined,
+                  title: 'No plays yet',
                 );
               }
               return ListView(
                 padding: EdgeInsets.all(context.themeSpacing.md),
                 children: [
-                  _LineScore(innings: innings.valueOrNull ?? const [], game: game),
+                  if (game != null)
+                    LineScore(
+                      innings: innings.valueOrNull ?? const [],
+                      game: game,
+                    ),
                   SizedBox(height: context.themeSpacing.md),
                   for (final line in rolled.values)
                     ListTile(
@@ -89,84 +96,6 @@ class BoxScoreScreen extends ConsumerWidget {
   }
 }
 
-/// Runs by inning, the way a scorebook shows them.
-class _LineScore extends StatelessWidget {
-  const _LineScore({required this.innings, required this.game});
-
-  final List<GameInning> innings;
-  final Game? game;
-
-  @override
-  Widget build(BuildContext context) {
-    if (innings.isEmpty || game == null) return const SizedBox.shrink();
-    final sorted = [...innings]..sort((a, b) => a.inning.compareTo(b.inning));
-    final labelStyle = context.text.labelSmall;
-    final valueStyle = context.text.bodyMedium;
-
-    Widget cell(String text, {bool header = false, bool bold = false}) {
-      return Container(
-        width: 30,
-        alignment: Alignment.center,
-        padding: EdgeInsets.symmetric(vertical: context.themeSpacing.xs),
-        child: Text(
-          text,
-          style: header
-              ? labelStyle
-              : valueStyle?.copyWith(
-                  fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
-                ),
-        ),
-      );
-    }
-
-    Widget row(String label, List<int> values, int total, {bool bold = false}) {
-      return Row(
-        children: [
-          SizedBox(
-            width: 64,
-            child: Text(
-              label,
-              overflow: TextOverflow.ellipsis,
-              style: valueStyle?.copyWith(
-                fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
-          ),
-          for (final value in values) cell('$value'),
-          cell('$total', bold: true),
-        ],
-      );
-    }
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const SizedBox(width: 64),
-              for (final line in sorted) cell('${line.inning}', header: true),
-              cell('R', header: true),
-            ],
-          ),
-          row(
-            game!.opponentName ?? 'Them',
-            [for (final line in sorted) line.theirRuns],
-            game!.theirRuns,
-          ),
-          row(
-            'Us',
-            [for (final line in sorted) line.ourRuns],
-            game!.ourRuns,
-            bold: true,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// Plain text for sharing: a readable summary, then CSV for spreadsheets.
 String boxScoreText(
   List<PlateAppearance> pas,
@@ -181,14 +110,16 @@ String boxScoreText(
     for (final pa in pas)
       PaInput(
         playerId: pa.playerId,
-        result: PaResult.fromWire(pa.result),
+        result: PaResult.fromWire(pa.effectiveResult ?? pa.result),
         rbi: pa.rbi,
         runsScored: pa.runsScored,
       ),
   ]);
   final buf = StringBuffer('HackTracker box score\n');
   if (game != null) {
-    buf.writeln('${game.opponentName ?? 'Game'}  ${game.ourRuns}-${game.theirRuns}');
+    buf.writeln(
+      '${game.opponentName ?? 'Game'}  ${game.ourRuns}-${game.theirRuns}',
+    );
   }
   buf.writeln();
   for (final line in rolled.values) {

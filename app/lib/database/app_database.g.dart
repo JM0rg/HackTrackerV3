@@ -4642,6 +4642,28 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
     requiredDuringInsert: false,
     defaultValue: const Constant(1),
   );
+  static const VerificationMeta _scoringDraftMeta = const VerificationMeta(
+    'scoringDraft',
+  );
+  @override
+  late final GeneratedColumn<String> scoringDraft = GeneratedColumn<String>(
+    'scoring_draft',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _settingsSnapshotMeta = const VerificationMeta(
+    'settingsSnapshot',
+  );
+  @override
+  late final GeneratedColumn<String> settingsSnapshot = GeneratedColumn<String>(
+    'settings_snapshot',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _teamIdMeta = const VerificationMeta('teamId');
   @override
   late final GeneratedColumn<String> teamId = GeneratedColumn<String>(
@@ -4910,6 +4932,8 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
     updatedAt,
     deletedAt,
     syncState,
+    scoringDraft,
+    settingsSnapshot,
     teamId,
     kind,
     opponentId,
@@ -4978,6 +5002,24 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
       context.handle(
         _syncStateMeta,
         syncState.isAcceptableOrUnknown(data['sync_state']!, _syncStateMeta),
+      );
+    }
+    if (data.containsKey('scoring_draft')) {
+      context.handle(
+        _scoringDraftMeta,
+        scoringDraft.isAcceptableOrUnknown(
+          data['scoring_draft']!,
+          _scoringDraftMeta,
+        ),
+      );
+    }
+    if (data.containsKey('settings_snapshot')) {
+      context.handle(
+        _settingsSnapshotMeta,
+        settingsSnapshot.isAcceptableOrUnknown(
+          data['settings_snapshot']!,
+          _settingsSnapshotMeta,
+        ),
       );
     }
     if (data.containsKey('team_id')) {
@@ -5189,6 +5231,14 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
         DriftSqlType.int,
         data['${effectivePrefix}sync_state'],
       )!,
+      scoringDraft: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}scoring_draft'],
+      ),
+      settingsSnapshot: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}settings_snapshot'],
+      ),
       teamId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}team_id'],
@@ -5300,6 +5350,10 @@ class Game extends DataClass implements Insertable<Game> {
   final DateTime updatedAt;
   final DateTime? deletedAt;
   final int syncState;
+  final String? scoringDraft;
+
+  /// Frozen at creation so future team settings cannot rewrite this game.
+  final String? settingsSnapshot;
   final String? teamId;
   final String kind;
   final String? opponentId;
@@ -5329,8 +5383,7 @@ class Game extends DataClass implements Insertable<Game> {
   /// `game_events` row when the half ends.
   final int theirHalfRuns;
 
-  /// Personal games that keep score: teammates' runs in our half under way.
-  /// Your own RBI come from your plate appearances.
+  /// Personal games: total team runs in our half, independent of player RBI.
   final int ourHalfRuns;
 
   /// `bat` (just your at-bats) or `game` (at-bats plus team scores). Team
@@ -5342,6 +5395,8 @@ class Game extends DataClass implements Insertable<Game> {
     required this.updatedAt,
     this.deletedAt,
     required this.syncState,
+    this.scoringDraft,
+    this.settingsSnapshot,
     this.teamId,
     required this.kind,
     this.opponentId,
@@ -5377,6 +5432,12 @@ class Game extends DataClass implements Insertable<Game> {
       map['deleted_at'] = Variable<DateTime>(deletedAt);
     }
     map['sync_state'] = Variable<int>(syncState);
+    if (!nullToAbsent || scoringDraft != null) {
+      map['scoring_draft'] = Variable<String>(scoringDraft);
+    }
+    if (!nullToAbsent || settingsSnapshot != null) {
+      map['settings_snapshot'] = Variable<String>(settingsSnapshot);
+    }
     if (!nullToAbsent || teamId != null) {
       map['team_id'] = Variable<String>(teamId);
     }
@@ -5437,6 +5498,12 @@ class Game extends DataClass implements Insertable<Game> {
           ? const Value.absent()
           : Value(deletedAt),
       syncState: Value(syncState),
+      scoringDraft: scoringDraft == null && nullToAbsent
+          ? const Value.absent()
+          : Value(scoringDraft),
+      settingsSnapshot: settingsSnapshot == null && nullToAbsent
+          ? const Value.absent()
+          : Value(settingsSnapshot),
       teamId: teamId == null && nullToAbsent
           ? const Value.absent()
           : Value(teamId),
@@ -5497,6 +5564,8 @@ class Game extends DataClass implements Insertable<Game> {
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       syncState: serializer.fromJson<int>(json['syncState']),
+      scoringDraft: serializer.fromJson<String?>(json['scoringDraft']),
+      settingsSnapshot: serializer.fromJson<String?>(json['settingsSnapshot']),
       teamId: serializer.fromJson<String?>(json['teamId']),
       kind: serializer.fromJson<String>(json['kind']),
       opponentId: serializer.fromJson<String?>(json['opponentId']),
@@ -5532,6 +5601,8 @@ class Game extends DataClass implements Insertable<Game> {
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'syncState': serializer.toJson<int>(syncState),
+      'scoringDraft': serializer.toJson<String?>(scoringDraft),
+      'settingsSnapshot': serializer.toJson<String?>(settingsSnapshot),
       'teamId': serializer.toJson<String?>(teamId),
       'kind': serializer.toJson<String>(kind),
       'opponentId': serializer.toJson<String?>(opponentId),
@@ -5565,6 +5636,8 @@ class Game extends DataClass implements Insertable<Game> {
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
     int? syncState,
+    Value<String?> scoringDraft = const Value.absent(),
+    Value<String?> settingsSnapshot = const Value.absent(),
     Value<String?> teamId = const Value.absent(),
     String? kind,
     Value<String?> opponentId = const Value.absent(),
@@ -5595,6 +5668,10 @@ class Game extends DataClass implements Insertable<Game> {
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     syncState: syncState ?? this.syncState,
+    scoringDraft: scoringDraft.present ? scoringDraft.value : this.scoringDraft,
+    settingsSnapshot: settingsSnapshot.present
+        ? settingsSnapshot.value
+        : this.settingsSnapshot,
     teamId: teamId.present ? teamId.value : this.teamId,
     kind: kind ?? this.kind,
     opponentId: opponentId.present ? opponentId.value : this.opponentId,
@@ -5631,6 +5708,12 @@ class Game extends DataClass implements Insertable<Game> {
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       syncState: data.syncState.present ? data.syncState.value : this.syncState,
+      scoringDraft: data.scoringDraft.present
+          ? data.scoringDraft.value
+          : this.scoringDraft,
+      settingsSnapshot: data.settingsSnapshot.present
+          ? data.settingsSnapshot.value
+          : this.settingsSnapshot,
       teamId: data.teamId.present ? data.teamId.value : this.teamId,
       kind: data.kind.present ? data.kind.value : this.kind,
       opponentId: data.opponentId.present
@@ -5692,6 +5775,8 @@ class Game extends DataClass implements Insertable<Game> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('syncState: $syncState, ')
+          ..write('scoringDraft: $scoringDraft, ')
+          ..write('settingsSnapshot: $settingsSnapshot, ')
           ..write('teamId: $teamId, ')
           ..write('kind: $kind, ')
           ..write('opponentId: $opponentId, ')
@@ -5727,6 +5812,8 @@ class Game extends DataClass implements Insertable<Game> {
     updatedAt,
     deletedAt,
     syncState,
+    scoringDraft,
+    settingsSnapshot,
     teamId,
     kind,
     opponentId,
@@ -5761,6 +5848,8 @@ class Game extends DataClass implements Insertable<Game> {
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt &&
           other.syncState == this.syncState &&
+          other.scoringDraft == this.scoringDraft &&
+          other.settingsSnapshot == this.settingsSnapshot &&
           other.teamId == this.teamId &&
           other.kind == this.kind &&
           other.opponentId == this.opponentId &&
@@ -5793,6 +5882,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
   final Value<int> syncState;
+  final Value<String?> scoringDraft;
+  final Value<String?> settingsSnapshot;
   final Value<String?> teamId;
   final Value<String> kind;
   final Value<String?> opponentId;
@@ -5824,6 +5915,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.syncState = const Value.absent(),
+    this.scoringDraft = const Value.absent(),
+    this.settingsSnapshot = const Value.absent(),
     this.teamId = const Value.absent(),
     this.kind = const Value.absent(),
     this.opponentId = const Value.absent(),
@@ -5856,6 +5949,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
     required DateTime updatedAt,
     this.deletedAt = const Value.absent(),
     this.syncState = const Value.absent(),
+    this.scoringDraft = const Value.absent(),
+    this.settingsSnapshot = const Value.absent(),
     this.teamId = const Value.absent(),
     this.kind = const Value.absent(),
     this.opponentId = const Value.absent(),
@@ -5890,6 +5985,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? deletedAt,
     Expression<int>? syncState,
+    Expression<String>? scoringDraft,
+    Expression<String>? settingsSnapshot,
     Expression<String>? teamId,
     Expression<String>? kind,
     Expression<String>? opponentId,
@@ -5922,6 +6019,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (syncState != null) 'sync_state': syncState,
+      if (scoringDraft != null) 'scoring_draft': scoringDraft,
+      if (settingsSnapshot != null) 'settings_snapshot': settingsSnapshot,
       if (teamId != null) 'team_id': teamId,
       if (kind != null) 'kind': kind,
       if (opponentId != null) 'opponent_id': opponentId,
@@ -5957,6 +6056,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
     Value<int>? syncState,
+    Value<String?>? scoringDraft,
+    Value<String?>? settingsSnapshot,
     Value<String?>? teamId,
     Value<String>? kind,
     Value<String?>? opponentId,
@@ -5989,6 +6090,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
       syncState: syncState ?? this.syncState,
+      scoringDraft: scoringDraft ?? this.scoringDraft,
+      settingsSnapshot: settingsSnapshot ?? this.settingsSnapshot,
       teamId: teamId ?? this.teamId,
       kind: kind ?? this.kind,
       opponentId: opponentId ?? this.opponentId,
@@ -6034,6 +6137,12 @@ class GamesCompanion extends UpdateCompanion<Game> {
     }
     if (syncState.present) {
       map['sync_state'] = Variable<int>(syncState.value);
+    }
+    if (scoringDraft.present) {
+      map['scoring_draft'] = Variable<String>(scoringDraft.value);
+    }
+    if (settingsSnapshot.present) {
+      map['settings_snapshot'] = Variable<String>(settingsSnapshot.value);
     }
     if (teamId.present) {
       map['team_id'] = Variable<String>(teamId.value);
@@ -6121,6 +6230,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('syncState: $syncState, ')
+          ..write('scoringDraft: $scoringDraft, ')
+          ..write('settingsSnapshot: $settingsSnapshot, ')
           ..write('teamId: $teamId, ')
           ..write('kind: $kind, ')
           ..write('opponentId: $opponentId, ')
@@ -7333,6 +7444,42 @@ class $PlateAppearancesTable extends PlateAppearances
     requiredDuringInsert: false,
     defaultValue: const Constant(1),
   );
+  static const VerificationMeta _resolutionMeta = const VerificationMeta(
+    'resolution',
+  );
+  @override
+  late final GeneratedColumn<String> resolution = GeneratedColumn<String>(
+    'resolution',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _batterWasMaleMeta = const VerificationMeta(
+    'batterWasMale',
+  );
+  @override
+  late final GeneratedColumn<bool> batterWasMale = GeneratedColumn<bool>(
+    'batter_was_male',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("batter_was_male" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _effectiveResultMeta = const VerificationMeta(
+    'effectiveResult',
+  );
+  @override
+  late final GeneratedColumn<String> effectiveResult = GeneratedColumn<String>(
+    'effective_result',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _teamIdMeta = const VerificationMeta('teamId');
   @override
   late final GeneratedColumn<String> teamId = GeneratedColumn<String>(
@@ -7523,6 +7670,9 @@ class $PlateAppearancesTable extends PlateAppearances
     updatedAt,
     deletedAt,
     syncState,
+    resolution,
+    batterWasMale,
+    effectiveResult,
     teamId,
     gameId,
     playerId,
@@ -7584,6 +7734,30 @@ class $PlateAppearancesTable extends PlateAppearances
       context.handle(
         _syncStateMeta,
         syncState.isAcceptableOrUnknown(data['sync_state']!, _syncStateMeta),
+      );
+    }
+    if (data.containsKey('resolution')) {
+      context.handle(
+        _resolutionMeta,
+        resolution.isAcceptableOrUnknown(data['resolution']!, _resolutionMeta),
+      );
+    }
+    if (data.containsKey('batter_was_male')) {
+      context.handle(
+        _batterWasMaleMeta,
+        batterWasMale.isAcceptableOrUnknown(
+          data['batter_was_male']!,
+          _batterWasMaleMeta,
+        ),
+      );
+    }
+    if (data.containsKey('effective_result')) {
+      context.handle(
+        _effectiveResultMeta,
+        effectiveResult.isAcceptableOrUnknown(
+          data['effective_result']!,
+          _effectiveResultMeta,
+        ),
       );
     }
     if (data.containsKey('team_id')) {
@@ -7747,6 +7921,18 @@ class $PlateAppearancesTable extends PlateAppearances
         DriftSqlType.int,
         data['${effectivePrefix}sync_state'],
       )!,
+      resolution: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}resolution'],
+      ),
+      batterWasMale: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}batter_was_male'],
+      ),
+      effectiveResult: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}effective_result'],
+      ),
       teamId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}team_id'],
@@ -7830,6 +8016,11 @@ class PlateAppearance extends DataClass implements Insertable<PlateAppearance> {
   final DateTime updatedAt;
   final DateTime? deletedAt;
   final int syncState;
+  final String? resolution;
+  final bool? batterWasMale;
+
+  /// Rebuildable scoring credit after applying the game rules.
+  final String? effectiveResult;
   final String? teamId;
   final String gameId;
   final String playerId;
@@ -7860,6 +8051,9 @@ class PlateAppearance extends DataClass implements Insertable<PlateAppearance> {
     required this.updatedAt,
     this.deletedAt,
     required this.syncState,
+    this.resolution,
+    this.batterWasMale,
+    this.effectiveResult,
     this.teamId,
     required this.gameId,
     required this.playerId,
@@ -7888,6 +8082,15 @@ class PlateAppearance extends DataClass implements Insertable<PlateAppearance> {
       map['deleted_at'] = Variable<DateTime>(deletedAt);
     }
     map['sync_state'] = Variable<int>(syncState);
+    if (!nullToAbsent || resolution != null) {
+      map['resolution'] = Variable<String>(resolution);
+    }
+    if (!nullToAbsent || batterWasMale != null) {
+      map['batter_was_male'] = Variable<bool>(batterWasMale);
+    }
+    if (!nullToAbsent || effectiveResult != null) {
+      map['effective_result'] = Variable<String>(effectiveResult);
+    }
     if (!nullToAbsent || teamId != null) {
       map['team_id'] = Variable<String>(teamId);
     }
@@ -7933,6 +8136,15 @@ class PlateAppearance extends DataClass implements Insertable<PlateAppearance> {
           ? const Value.absent()
           : Value(deletedAt),
       syncState: Value(syncState),
+      resolution: resolution == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resolution),
+      batterWasMale: batterWasMale == null && nullToAbsent
+          ? const Value.absent()
+          : Value(batterWasMale),
+      effectiveResult: effectiveResult == null && nullToAbsent
+          ? const Value.absent()
+          : Value(effectiveResult),
       teamId: teamId == null && nullToAbsent
           ? const Value.absent()
           : Value(teamId),
@@ -7980,6 +8192,9 @@ class PlateAppearance extends DataClass implements Insertable<PlateAppearance> {
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       syncState: serializer.fromJson<int>(json['syncState']),
+      resolution: serializer.fromJson<String?>(json['resolution']),
+      batterWasMale: serializer.fromJson<bool?>(json['batterWasMale']),
+      effectiveResult: serializer.fromJson<String?>(json['effectiveResult']),
       teamId: serializer.fromJson<String?>(json['teamId']),
       gameId: serializer.fromJson<String>(json['gameId']),
       playerId: serializer.fromJson<String>(json['playerId']),
@@ -8008,6 +8223,9 @@ class PlateAppearance extends DataClass implements Insertable<PlateAppearance> {
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'syncState': serializer.toJson<int>(syncState),
+      'resolution': serializer.toJson<String?>(resolution),
+      'batterWasMale': serializer.toJson<bool?>(batterWasMale),
+      'effectiveResult': serializer.toJson<String?>(effectiveResult),
       'teamId': serializer.toJson<String?>(teamId),
       'gameId': serializer.toJson<String>(gameId),
       'playerId': serializer.toJson<String>(playerId),
@@ -8034,6 +8252,9 @@ class PlateAppearance extends DataClass implements Insertable<PlateAppearance> {
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
     int? syncState,
+    Value<String?> resolution = const Value.absent(),
+    Value<bool?> batterWasMale = const Value.absent(),
+    Value<String?> effectiveResult = const Value.absent(),
     Value<String?> teamId = const Value.absent(),
     String? gameId,
     String? playerId,
@@ -8057,6 +8278,13 @@ class PlateAppearance extends DataClass implements Insertable<PlateAppearance> {
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     syncState: syncState ?? this.syncState,
+    resolution: resolution.present ? resolution.value : this.resolution,
+    batterWasMale: batterWasMale.present
+        ? batterWasMale.value
+        : this.batterWasMale,
+    effectiveResult: effectiveResult.present
+        ? effectiveResult.value
+        : this.effectiveResult,
     teamId: teamId.present ? teamId.value : this.teamId,
     gameId: gameId ?? this.gameId,
     playerId: playerId ?? this.playerId,
@@ -8086,6 +8314,15 @@ class PlateAppearance extends DataClass implements Insertable<PlateAppearance> {
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       syncState: data.syncState.present ? data.syncState.value : this.syncState,
+      resolution: data.resolution.present
+          ? data.resolution.value
+          : this.resolution,
+      batterWasMale: data.batterWasMale.present
+          ? data.batterWasMale.value
+          : this.batterWasMale,
+      effectiveResult: data.effectiveResult.present
+          ? data.effectiveResult.value
+          : this.effectiveResult,
       teamId: data.teamId.present ? data.teamId.value : this.teamId,
       gameId: data.gameId.present ? data.gameId.value : this.gameId,
       playerId: data.playerId.present ? data.playerId.value : this.playerId,
@@ -8130,6 +8367,9 @@ class PlateAppearance extends DataClass implements Insertable<PlateAppearance> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('syncState: $syncState, ')
+          ..write('resolution: $resolution, ')
+          ..write('batterWasMale: $batterWasMale, ')
+          ..write('effectiveResult: $effectiveResult, ')
           ..write('teamId: $teamId, ')
           ..write('gameId: $gameId, ')
           ..write('playerId: $playerId, ')
@@ -8158,6 +8398,9 @@ class PlateAppearance extends DataClass implements Insertable<PlateAppearance> {
     updatedAt,
     deletedAt,
     syncState,
+    resolution,
+    batterWasMale,
+    effectiveResult,
     teamId,
     gameId,
     playerId,
@@ -8185,6 +8428,9 @@ class PlateAppearance extends DataClass implements Insertable<PlateAppearance> {
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt &&
           other.syncState == this.syncState &&
+          other.resolution == this.resolution &&
+          other.batterWasMale == this.batterWasMale &&
+          other.effectiveResult == this.effectiveResult &&
           other.teamId == this.teamId &&
           other.gameId == this.gameId &&
           other.playerId == this.playerId &&
@@ -8210,6 +8456,9 @@ class PlateAppearancesCompanion extends UpdateCompanion<PlateAppearance> {
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
   final Value<int> syncState;
+  final Value<String?> resolution;
+  final Value<bool?> batterWasMale;
+  final Value<String?> effectiveResult;
   final Value<String?> teamId;
   final Value<String> gameId;
   final Value<String> playerId;
@@ -8234,6 +8483,9 @@ class PlateAppearancesCompanion extends UpdateCompanion<PlateAppearance> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.syncState = const Value.absent(),
+    this.resolution = const Value.absent(),
+    this.batterWasMale = const Value.absent(),
+    this.effectiveResult = const Value.absent(),
     this.teamId = const Value.absent(),
     this.gameId = const Value.absent(),
     this.playerId = const Value.absent(),
@@ -8259,6 +8511,9 @@ class PlateAppearancesCompanion extends UpdateCompanion<PlateAppearance> {
     required DateTime updatedAt,
     this.deletedAt = const Value.absent(),
     this.syncState = const Value.absent(),
+    this.resolution = const Value.absent(),
+    this.batterWasMale = const Value.absent(),
+    this.effectiveResult = const Value.absent(),
     this.teamId = const Value.absent(),
     required String gameId,
     required String playerId,
@@ -8292,6 +8547,9 @@ class PlateAppearancesCompanion extends UpdateCompanion<PlateAppearance> {
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? deletedAt,
     Expression<int>? syncState,
+    Expression<String>? resolution,
+    Expression<bool>? batterWasMale,
+    Expression<String>? effectiveResult,
     Expression<String>? teamId,
     Expression<String>? gameId,
     Expression<String>? playerId,
@@ -8317,6 +8575,9 @@ class PlateAppearancesCompanion extends UpdateCompanion<PlateAppearance> {
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (syncState != null) 'sync_state': syncState,
+      if (resolution != null) 'resolution': resolution,
+      if (batterWasMale != null) 'batter_was_male': batterWasMale,
+      if (effectiveResult != null) 'effective_result': effectiveResult,
       if (teamId != null) 'team_id': teamId,
       if (gameId != null) 'game_id': gameId,
       if (playerId != null) 'player_id': playerId,
@@ -8344,6 +8605,9 @@ class PlateAppearancesCompanion extends UpdateCompanion<PlateAppearance> {
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
     Value<int>? syncState,
+    Value<String?>? resolution,
+    Value<bool?>? batterWasMale,
+    Value<String?>? effectiveResult,
     Value<String?>? teamId,
     Value<String>? gameId,
     Value<String>? playerId,
@@ -8369,6 +8633,9 @@ class PlateAppearancesCompanion extends UpdateCompanion<PlateAppearance> {
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
       syncState: syncState ?? this.syncState,
+      resolution: resolution ?? this.resolution,
+      batterWasMale: batterWasMale ?? this.batterWasMale,
+      effectiveResult: effectiveResult ?? this.effectiveResult,
       teamId: teamId ?? this.teamId,
       gameId: gameId ?? this.gameId,
       playerId: playerId ?? this.playerId,
@@ -8407,6 +8674,15 @@ class PlateAppearancesCompanion extends UpdateCompanion<PlateAppearance> {
     }
     if (syncState.present) {
       map['sync_state'] = Variable<int>(syncState.value);
+    }
+    if (resolution.present) {
+      map['resolution'] = Variable<String>(resolution.value);
+    }
+    if (batterWasMale.present) {
+      map['batter_was_male'] = Variable<bool>(batterWasMale.value);
+    }
+    if (effectiveResult.present) {
+      map['effective_result'] = Variable<String>(effectiveResult.value);
     }
     if (teamId.present) {
       map['team_id'] = Variable<String>(teamId.value);
@@ -8473,6 +8749,9 @@ class PlateAppearancesCompanion extends UpdateCompanion<PlateAppearance> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('syncState: $syncState, ')
+          ..write('resolution: $resolution, ')
+          ..write('batterWasMale: $batterWasMale, ')
+          ..write('effectiveResult: $effectiveResult, ')
           ..write('teamId: $teamId, ')
           ..write('gameId: $gameId, ')
           ..write('playerId: $playerId, ')
@@ -8556,6 +8835,17 @@ class $GameEventsTable extends GameEvents
     requiredDuringInsert: false,
     defaultValue: const Constant(1),
   );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _teamIdMeta = const VerificationMeta('teamId');
   @override
   late final GeneratedColumn<String> teamId = GeneratedColumn<String>(
@@ -8611,6 +8901,7 @@ class $GameEventsTable extends GameEvents
     updatedAt,
     deletedAt,
     syncState,
+    payload,
     teamId,
     gameId,
     sequence,
@@ -8660,6 +8951,12 @@ class $GameEventsTable extends GameEvents
       context.handle(
         _syncStateMeta,
         syncState.isAcceptableOrUnknown(data['sync_state']!, _syncStateMeta),
+      );
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
       );
     }
     if (data.containsKey('team_id')) {
@@ -8727,6 +9024,10 @@ class $GameEventsTable extends GameEvents
         DriftSqlType.int,
         data['${effectivePrefix}sync_state'],
       )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      ),
       teamId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}team_id'],
@@ -8762,6 +9063,7 @@ class GameEvent extends DataClass implements Insertable<GameEvent> {
   final DateTime updatedAt;
   final DateTime? deletedAt;
   final int syncState;
+  final String? payload;
   final String? teamId;
   final String gameId;
   final int sequence;
@@ -8773,6 +9075,7 @@ class GameEvent extends DataClass implements Insertable<GameEvent> {
     required this.updatedAt,
     this.deletedAt,
     required this.syncState,
+    this.payload,
     this.teamId,
     required this.gameId,
     required this.sequence,
@@ -8789,6 +9092,9 @@ class GameEvent extends DataClass implements Insertable<GameEvent> {
       map['deleted_at'] = Variable<DateTime>(deletedAt);
     }
     map['sync_state'] = Variable<int>(syncState);
+    if (!nullToAbsent || payload != null) {
+      map['payload'] = Variable<String>(payload);
+    }
     if (!nullToAbsent || teamId != null) {
       map['team_id'] = Variable<String>(teamId);
     }
@@ -8808,6 +9114,9 @@ class GameEvent extends DataClass implements Insertable<GameEvent> {
           ? const Value.absent()
           : Value(deletedAt),
       syncState: Value(syncState),
+      payload: payload == null && nullToAbsent
+          ? const Value.absent()
+          : Value(payload),
       teamId: teamId == null && nullToAbsent
           ? const Value.absent()
           : Value(teamId),
@@ -8829,6 +9138,7 @@ class GameEvent extends DataClass implements Insertable<GameEvent> {
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       syncState: serializer.fromJson<int>(json['syncState']),
+      payload: serializer.fromJson<String?>(json['payload']),
       teamId: serializer.fromJson<String?>(json['teamId']),
       gameId: serializer.fromJson<String>(json['gameId']),
       sequence: serializer.fromJson<int>(json['sequence']),
@@ -8845,6 +9155,7 @@ class GameEvent extends DataClass implements Insertable<GameEvent> {
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'syncState': serializer.toJson<int>(syncState),
+      'payload': serializer.toJson<String?>(payload),
       'teamId': serializer.toJson<String?>(teamId),
       'gameId': serializer.toJson<String>(gameId),
       'sequence': serializer.toJson<int>(sequence),
@@ -8859,6 +9170,7 @@ class GameEvent extends DataClass implements Insertable<GameEvent> {
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
     int? syncState,
+    Value<String?> payload = const Value.absent(),
     Value<String?> teamId = const Value.absent(),
     String? gameId,
     int? sequence,
@@ -8870,6 +9182,7 @@ class GameEvent extends DataClass implements Insertable<GameEvent> {
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     syncState: syncState ?? this.syncState,
+    payload: payload.present ? payload.value : this.payload,
     teamId: teamId.present ? teamId.value : this.teamId,
     gameId: gameId ?? this.gameId,
     sequence: sequence ?? this.sequence,
@@ -8883,6 +9196,7 @@ class GameEvent extends DataClass implements Insertable<GameEvent> {
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       syncState: data.syncState.present ? data.syncState.value : this.syncState,
+      payload: data.payload.present ? data.payload.value : this.payload,
       teamId: data.teamId.present ? data.teamId.value : this.teamId,
       gameId: data.gameId.present ? data.gameId.value : this.gameId,
       sequence: data.sequence.present ? data.sequence.value : this.sequence,
@@ -8899,6 +9213,7 @@ class GameEvent extends DataClass implements Insertable<GameEvent> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('syncState: $syncState, ')
+          ..write('payload: $payload, ')
           ..write('teamId: $teamId, ')
           ..write('gameId: $gameId, ')
           ..write('sequence: $sequence, ')
@@ -8915,6 +9230,7 @@ class GameEvent extends DataClass implements Insertable<GameEvent> {
     updatedAt,
     deletedAt,
     syncState,
+    payload,
     teamId,
     gameId,
     sequence,
@@ -8930,6 +9246,7 @@ class GameEvent extends DataClass implements Insertable<GameEvent> {
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt &&
           other.syncState == this.syncState &&
+          other.payload == this.payload &&
           other.teamId == this.teamId &&
           other.gameId == this.gameId &&
           other.sequence == this.sequence &&
@@ -8943,6 +9260,7 @@ class GameEventsCompanion extends UpdateCompanion<GameEvent> {
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
   final Value<int> syncState;
+  final Value<String?> payload;
   final Value<String?> teamId;
   final Value<String> gameId;
   final Value<int> sequence;
@@ -8955,6 +9273,7 @@ class GameEventsCompanion extends UpdateCompanion<GameEvent> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.syncState = const Value.absent(),
+    this.payload = const Value.absent(),
     this.teamId = const Value.absent(),
     this.gameId = const Value.absent(),
     this.sequence = const Value.absent(),
@@ -8968,6 +9287,7 @@ class GameEventsCompanion extends UpdateCompanion<GameEvent> {
     required DateTime updatedAt,
     this.deletedAt = const Value.absent(),
     this.syncState = const Value.absent(),
+    this.payload = const Value.absent(),
     this.teamId = const Value.absent(),
     required String gameId,
     required int sequence,
@@ -8986,6 +9306,7 @@ class GameEventsCompanion extends UpdateCompanion<GameEvent> {
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? deletedAt,
     Expression<int>? syncState,
+    Expression<String>? payload,
     Expression<String>? teamId,
     Expression<String>? gameId,
     Expression<int>? sequence,
@@ -8999,6 +9320,7 @@ class GameEventsCompanion extends UpdateCompanion<GameEvent> {
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (syncState != null) 'sync_state': syncState,
+      if (payload != null) 'payload': payload,
       if (teamId != null) 'team_id': teamId,
       if (gameId != null) 'game_id': gameId,
       if (sequence != null) 'sequence': sequence,
@@ -9014,6 +9336,7 @@ class GameEventsCompanion extends UpdateCompanion<GameEvent> {
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
     Value<int>? syncState,
+    Value<String?>? payload,
     Value<String?>? teamId,
     Value<String>? gameId,
     Value<int>? sequence,
@@ -9027,6 +9350,7 @@ class GameEventsCompanion extends UpdateCompanion<GameEvent> {
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
       syncState: syncState ?? this.syncState,
+      payload: payload ?? this.payload,
       teamId: teamId ?? this.teamId,
       gameId: gameId ?? this.gameId,
       sequence: sequence ?? this.sequence,
@@ -9053,6 +9377,9 @@ class GameEventsCompanion extends UpdateCompanion<GameEvent> {
     }
     if (syncState.present) {
       map['sync_state'] = Variable<int>(syncState.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
     }
     if (teamId.present) {
       map['team_id'] = Variable<String>(teamId.value);
@@ -9083,6 +9410,7 @@ class GameEventsCompanion extends UpdateCompanion<GameEvent> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('syncState: $syncState, ')
+          ..write('payload: $payload, ')
           ..write('teamId: $teamId, ')
           ..write('gameId: $gameId, ')
           ..write('sequence: $sequence, ')
@@ -12215,6 +12543,8 @@ typedef $$GamesTableCreateCompanionBuilder =
       required DateTime updatedAt,
       Value<DateTime?> deletedAt,
       Value<int> syncState,
+      Value<String?> scoringDraft,
+      Value<String?> settingsSnapshot,
       Value<String?> teamId,
       Value<String> kind,
       Value<String?> opponentId,
@@ -12248,6 +12578,8 @@ typedef $$GamesTableUpdateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       Value<int> syncState,
+      Value<String?> scoringDraft,
+      Value<String?> settingsSnapshot,
       Value<String?> teamId,
       Value<String> kind,
       Value<String?> opponentId,
@@ -12305,6 +12637,16 @@ class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
 
   ColumnFilters<int> get syncState => $composableBuilder(
     column: $table.syncState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get scoringDraft => $composableBuilder(
+    column: $table.scoringDraft,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get settingsSnapshot => $composableBuilder(
+    column: $table.settingsSnapshot,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12463,6 +12805,16 @@ class $$GamesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get scoringDraft => $composableBuilder(
+    column: $table.scoringDraft,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get settingsSnapshot => $composableBuilder(
+    column: $table.settingsSnapshot,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get teamId => $composableBuilder(
     column: $table.teamId,
     builder: (column) => ColumnOrderings(column),
@@ -12608,6 +12960,16 @@ class $$GamesTableAnnotationComposer
   GeneratedColumn<int> get syncState =>
       $composableBuilder(column: $table.syncState, builder: (column) => column);
 
+  GeneratedColumn<String> get scoringDraft => $composableBuilder(
+    column: $table.scoringDraft,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get settingsSnapshot => $composableBuilder(
+    column: $table.settingsSnapshot,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get teamId =>
       $composableBuilder(column: $table.teamId, builder: (column) => column);
 
@@ -12740,6 +13102,8 @@ class $$GamesTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> syncState = const Value.absent(),
+                Value<String?> scoringDraft = const Value.absent(),
+                Value<String?> settingsSnapshot = const Value.absent(),
                 Value<String?> teamId = const Value.absent(),
                 Value<String> kind = const Value.absent(),
                 Value<String?> opponentId = const Value.absent(),
@@ -12771,6 +13135,8 @@ class $$GamesTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 syncState: syncState,
+                scoringDraft: scoringDraft,
+                settingsSnapshot: settingsSnapshot,
                 teamId: teamId,
                 kind: kind,
                 opponentId: opponentId,
@@ -12804,6 +13170,8 @@ class $$GamesTableTableManager
                 required DateTime updatedAt,
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> syncState = const Value.absent(),
+                Value<String?> scoringDraft = const Value.absent(),
+                Value<String?> settingsSnapshot = const Value.absent(),
                 Value<String?> teamId = const Value.absent(),
                 Value<String> kind = const Value.absent(),
                 Value<String?> opponentId = const Value.absent(),
@@ -12835,6 +13203,8 @@ class $$GamesTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 syncState: syncState,
+                scoringDraft: scoringDraft,
+                settingsSnapshot: settingsSnapshot,
                 teamId: teamId,
                 kind: kind,
                 opponentId: opponentId,
@@ -13452,6 +13822,9 @@ typedef $$PlateAppearancesTableCreateCompanionBuilder =
       required DateTime updatedAt,
       Value<DateTime?> deletedAt,
       Value<int> syncState,
+      Value<String?> resolution,
+      Value<bool?> batterWasMale,
+      Value<String?> effectiveResult,
       Value<String?> teamId,
       required String gameId,
       required String playerId,
@@ -13478,6 +13851,9 @@ typedef $$PlateAppearancesTableUpdateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       Value<int> syncState,
+      Value<String?> resolution,
+      Value<bool?> batterWasMale,
+      Value<String?> effectiveResult,
       Value<String?> teamId,
       Value<String> gameId,
       Value<String> playerId,
@@ -13529,6 +13905,21 @@ class $$PlateAppearancesTableFilterComposer
 
   ColumnFilters<int> get syncState => $composableBuilder(
     column: $table.syncState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get resolution => $composableBuilder(
+    column: $table.resolution,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get batterWasMale => $composableBuilder(
+    column: $table.batterWasMale,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get effectiveResult => $composableBuilder(
+    column: $table.effectiveResult,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13652,6 +14043,21 @@ class $$PlateAppearancesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get resolution => $composableBuilder(
+    column: $table.resolution,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get batterWasMale => $composableBuilder(
+    column: $table.batterWasMale,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get effectiveResult => $composableBuilder(
+    column: $table.effectiveResult,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get teamId => $composableBuilder(
     column: $table.teamId,
     builder: (column) => ColumnOrderings(column),
@@ -13761,6 +14167,21 @@ class $$PlateAppearancesTableAnnotationComposer
 
   GeneratedColumn<int> get syncState =>
       $composableBuilder(column: $table.syncState, builder: (column) => column);
+
+  GeneratedColumn<String> get resolution => $composableBuilder(
+    column: $table.resolution,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get batterWasMale => $composableBuilder(
+    column: $table.batterWasMale,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get effectiveResult => $composableBuilder(
+    column: $table.effectiveResult,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get teamId =>
       $composableBuilder(column: $table.teamId, builder: (column) => column);
@@ -13872,6 +14293,9 @@ class $$PlateAppearancesTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> syncState = const Value.absent(),
+                Value<String?> resolution = const Value.absent(),
+                Value<bool?> batterWasMale = const Value.absent(),
+                Value<String?> effectiveResult = const Value.absent(),
                 Value<String?> teamId = const Value.absent(),
                 Value<String> gameId = const Value.absent(),
                 Value<String> playerId = const Value.absent(),
@@ -13896,6 +14320,9 @@ class $$PlateAppearancesTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 syncState: syncState,
+                resolution: resolution,
+                batterWasMale: batterWasMale,
+                effectiveResult: effectiveResult,
                 teamId: teamId,
                 gameId: gameId,
                 playerId: playerId,
@@ -13922,6 +14349,9 @@ class $$PlateAppearancesTableTableManager
                 required DateTime updatedAt,
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> syncState = const Value.absent(),
+                Value<String?> resolution = const Value.absent(),
+                Value<bool?> batterWasMale = const Value.absent(),
+                Value<String?> effectiveResult = const Value.absent(),
                 Value<String?> teamId = const Value.absent(),
                 required String gameId,
                 required String playerId,
@@ -13946,6 +14376,9 @@ class $$PlateAppearancesTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 syncState: syncState,
+                resolution: resolution,
+                batterWasMale: batterWasMale,
+                effectiveResult: effectiveResult,
                 teamId: teamId,
                 gameId: gameId,
                 playerId: playerId,
@@ -13997,6 +14430,7 @@ typedef $$GameEventsTableCreateCompanionBuilder =
       required DateTime updatedAt,
       Value<DateTime?> deletedAt,
       Value<int> syncState,
+      Value<String?> payload,
       Value<String?> teamId,
       required String gameId,
       required int sequence,
@@ -14011,6 +14445,7 @@ typedef $$GameEventsTableUpdateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
       Value<int> syncState,
+      Value<String?> payload,
       Value<String?> teamId,
       Value<String> gameId,
       Value<int> sequence,
@@ -14050,6 +14485,11 @@ class $$GameEventsTableFilterComposer
 
   ColumnFilters<int> get syncState => $composableBuilder(
     column: $table.syncState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14113,6 +14553,11 @@ class $$GameEventsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get teamId => $composableBuilder(
     column: $table.teamId,
     builder: (column) => ColumnOrderings(column),
@@ -14162,6 +14607,9 @@ class $$GameEventsTableAnnotationComposer
 
   GeneratedColumn<int> get syncState =>
       $composableBuilder(column: $table.syncState, builder: (column) => column);
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
 
   GeneratedColumn<String> get teamId =>
       $composableBuilder(column: $table.teamId, builder: (column) => column);
@@ -14215,6 +14663,7 @@ class $$GameEventsTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> syncState = const Value.absent(),
+                Value<String?> payload = const Value.absent(),
                 Value<String?> teamId = const Value.absent(),
                 Value<String> gameId = const Value.absent(),
                 Value<int> sequence = const Value.absent(),
@@ -14227,6 +14676,7 @@ class $$GameEventsTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 syncState: syncState,
+                payload: payload,
                 teamId: teamId,
                 gameId: gameId,
                 sequence: sequence,
@@ -14241,6 +14691,7 @@ class $$GameEventsTableTableManager
                 required DateTime updatedAt,
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> syncState = const Value.absent(),
+                Value<String?> payload = const Value.absent(),
                 Value<String?> teamId = const Value.absent(),
                 required String gameId,
                 required int sequence,
@@ -14253,6 +14704,7 @@ class $$GameEventsTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 syncState: syncState,
+                payload: payload,
                 teamId: teamId,
                 gameId: gameId,
                 sequence: sequence,

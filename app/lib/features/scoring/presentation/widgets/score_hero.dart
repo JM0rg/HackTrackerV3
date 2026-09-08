@@ -15,7 +15,7 @@ class ScoreHero extends StatefulWidget {
   });
 
   final FieldModeState state;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   /// A personal game keeping score has no lineup to end its own half, so the
   /// situation row grows two pills: a teammate's run, and the end of the half.
@@ -56,225 +56,153 @@ class _ScoreHeroState extends State<ScoreHero> {
     final replay = state.replay;
     final theirs = state.tracksScore && !replay.weBat;
 
-    return Semantics(
-      button: true,
-      label: 'Us ${replay.ourRuns}, them ${replay.theirRuns}. Open game log',
-      excludeSemantics: true,
-      child: InkWell(
-        onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Tap a score to add a run in a game with no lineup to count outs.
+        Semantics(
+          button: widget.onRun != null,
+          label: 'Us ${replay.ourRuns}, them ${replay.theirRuns}',
+          excludeSemantics: true,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _Side(
-                      label: 'US',
-                      runs: replay.ourRuns,
-                      color: field.accent,
-                      pop: _pop,
-                      numberKey: const Key('us-runs'),
-                    ),
-                  ),
-                  Expanded(
-                    child: _Side(
-                      label: 'THEM',
-                      runs: replay.theirRuns,
-                      color: field.on,
-                      pop: false,
-                      numberKey: const Key('them-runs'),
-                    ),
-                  ),
-                ],
+              _Number(
+                key: const Key('us-runs'),
+                value: replay.ourRuns,
+                color: field.accent,
+                pop: _pop,
+                onTap: widget.onRun == null ? null : () => widget.onRun!(1),
               ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _SituationPill(state: state, theirs: theirs),
-                  if (widget.onRun != null) ...[
-                    const SizedBox(width: 6),
-                    _ActionPill(
-                      key: const Key('our-run'),
-                      label: '+ RUN',
-                      accent: true,
-                      onTap: () => widget.onRun!(1),
-                    ),
-                  ],
-                  if (widget.onEndHalf != null) ...[
-                    const SizedBox(width: 6),
-                    _ActionPill(
-                      key: const Key('end-our-half'),
-                      label: 'END HALF ›',
-                      accent: false,
-                      onTap: widget.onEndHalf!,
-                    ),
-                  ],
-                ],
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Text(
+                  '–',
+                  style: context.text.headlineSmall?.copyWith(
+                    color: field.muted,
+                  ),
+                ),
+              ),
+              _Number(
+                key: const Key('them-runs'),
+                value: replay.theirRuns,
+                color: field.on,
+                pop: false,
+                onTap: null,
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _Side extends StatelessWidget {
-  const _Side({
-    required this.label,
-    required this.runs,
-    required this.color,
-    required this.pop,
-    required this.numberKey,
-  });
-
-  final String label;
-  final int runs;
-  final Color color;
-  final bool pop;
-  final Key numberKey;
-
-  @override
-  Widget build(BuildContext context) {
-    final field = context.colors.field;
-    return Column(
-      children: [
-        AnimatedScale(
-          duration: const Duration(milliseconds: 180),
-          scale: pop ? 1.16 : 1,
-          child: Text(
-            '$runs',
-            key: numberKey,
-            style: context.text.displaySmall?.copyWith(
-              color: color,
-              fontSize: 52,
-              fontWeight: FontWeight.w600,
-              height: 1,
-              fontFeatures: tabularFigures,
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: context.text.labelSmall?.copyWith(
-            color: field.muted,
-            letterSpacing: 2.4,
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-          ),
+        const SizedBox(height: 8),
+        _Situation(
+          state: state,
+          theirs: theirs,
+          onEndHalf: widget.onEndHalf,
+          onOpenLog: widget.onTap,
         ),
       ],
     );
   }
 }
 
-/// Half, inning and outs on a team. The opponent in a personal game, since
-/// that is the thing you forget.
-class _SituationPill extends StatelessWidget {
-  const _SituationPill({required this.state, required this.theirs});
+/// The score itself. Tapping ours adds a teammate's run where that applies.
+class _Number extends StatelessWidget {
+  const _Number({
+    super.key,
+    required this.value,
+    required this.color,
+    required this.pop,
+    required this.onTap,
+  });
 
-  final FieldModeState state;
-  final bool theirs;
+  final int value;
+  final Color color;
+  final bool pop;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final field = context.colors.field;
-    final replay = state.replay;
-
-    final String text;
-    final half = replay.half == 'top' ? 'TOP' : 'BOT';
-    if (theirs) {
-      text = '$half ${replay.inning} · THEY BAT';
-    } else if (state.personal) {
-      // No lineup, so no outs to count.
-      text = '$half ${replay.inning}';
-    } else {
-      final outs = replay.outs;
-      text = '$half ${replay.inning} · $outs OUT${outs == 1 ? '' : 'S'}';
-    }
-
-    return Container(
-      key: const Key('situation'),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      decoration: BoxDecoration(
-        color: theirs ? field.out : field.surfaceHigh,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            text,
-            style: context.text.labelSmall?.copyWith(
-              color: theirs ? field.onOut : field.on,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.4,
-              fontSize: 11,
-            ),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 180),
+        scale: pop ? 1.12 : 1,
+        child: Text(
+          '$value',
+          style: context.text.displayMedium?.copyWith(
+            color: color,
+            fontFeatures: tabularFigures,
           ),
-          if (!state.personal && !theirs) ...[
-            const SizedBox(width: 6),
-            for (var i = 0; i < 3; i++)
-              Container(
-                width: 6,
-                height: 6,
-                margin: const EdgeInsets.only(left: 3),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: i < replay.outs ? field.onOut : Colors.transparent,
-                  border: Border.all(
-                    color: i < replay.outs ? field.onOut : field.muted,
-                    width: 1.2,
-                  ),
-                ),
-              ),
-          ],
-        ],
+        ),
       ),
     );
   }
 }
 
-class _ActionPill extends StatelessWidget {
-  const _ActionPill({
-    super.key,
-    required this.label,
-    required this.accent,
-    required this.onTap,
+/// One quiet line under the score. Swipe it to end our half where that
+/// applies; tap it for the log.
+class _Situation extends StatelessWidget {
+  const _Situation({
+    required this.state,
+    required this.theirs,
+    required this.onEndHalf,
+    required this.onOpenLog,
   });
 
-  final String label;
-  final bool accent;
-  final VoidCallback onTap;
+  final FieldModeState state;
+  final bool theirs;
+  final VoidCallback? onEndHalf;
+  final VoidCallback? onOpenLog;
 
   @override
   Widget build(BuildContext context) {
     final field = context.colors.field;
-    return Semantics(
-      button: true,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: field.lineStrong, width: 1.5),
+    final replay = state.replay;
+    final opponent = state.game.opponentName?.trim();
+
+    final where = <String>[];
+    if (state.tracksScore) {
+      where.add('${replay.half == 'top' ? 'Top' : 'Bot'} ${replay.inning}');
+      if (theirs) {
+        where.add('they bat');
+      } else if (!state.personal) {
+        where.add('${replay.outs} out');
+      }
+    }
+    if (opponent != null && opponent.isNotEmpty) where.add(opponent);
+    if (where.isEmpty) where.add('Personal game');
+
+    return GestureDetector(
+      key: const Key('situation'),
+      onTap: onOpenLog,
+      onHorizontalDragEnd: onEndHalf == null
+          ? null
+          : (d) {
+              if (d.primaryVelocity != null && d.primaryVelocity!.abs() > 150) {
+                onEndHalf!();
+              }
+            },
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: where.first,
+                style: TextStyle(
+                  color: theirs ? field.onOut : field.on,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (where.length > 1)
+                TextSpan(text: ' · ${where.skip(1).join(' · ')}'),
+            ],
           ),
-          child: Text(
-            label,
-            style: context.text.labelSmall?.copyWith(
-              color: accent ? field.accent : field.muted,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.4,
-              fontSize: 11,
-            ),
-          ),
+          style: context.text.bodyMedium?.copyWith(color: field.muted),
         ),
       ),
     );

@@ -193,35 +193,73 @@ class AppScaffold extends StatelessWidget {
   }
 }
 
+/// Nothing here yet. One glyph, one line, one action, centred on the screen.
+/// Never a header over an empty list, never two messages saying the same thing.
 class EmptyState extends StatelessWidget {
   const EmptyState({
     super.key,
     required this.title,
-    required this.actionLabel,
-    required this.onAction,
     this.message,
+    this.actionLabel,
+    this.onAction,
+    this.icon,
+    this.art,
   });
 
   final String title;
   final String? message;
-  final String actionLabel;
-  final VoidCallback onAction;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  final IconData? icon;
+
+  /// Something more than an icon, when the screen is the app's front door.
+  final Widget? art;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final s = context.themeSpacing;
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(context.themeSpacing.lg),
+        padding: EdgeInsets.symmetric(horizontal: s.lg + 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(title, style: context.text.titleMedium, textAlign: TextAlign.center),
+            if (art != null)
+              art!
+            else if (icon != null)
+              Icon(icon, size: 44, color: colors.muted.withValues(alpha: 0.55)),
+            if (art != null || icon != null) SizedBox(height: s.lg + 4),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: context.text.headlineSmall,
+            ),
             if (message != null) ...[
-              SizedBox(height: context.themeSpacing.sm),
-              Text(message!, style: context.text.bodySmall, textAlign: TextAlign.center),
+              SizedBox(height: s.sm),
+              ConstrainedBox(
+                // Keep the measure short so copy never hyphenates.
+                constraints: const BoxConstraints(maxWidth: 260),
+                child: Text(
+                  message!,
+                  textAlign: TextAlign.center,
+                  style: context.text.bodyMedium?.copyWith(color: colors.muted),
+                ),
+              ),
             ],
-            SizedBox(height: context.themeSpacing.md),
-            AppButton(label: actionLabel, onPressed: onAction, expand: false),
+            if (actionLabel != null && onAction != null) ...[
+              SizedBox(height: s.lg + 8),
+              SizedBox(
+                height: 52,
+                child: FilledButton(
+                  onPressed: onAction,
+                  style: FilledButton.styleFrom(
+                    padding: EdgeInsets.symmetric(horizontal: s.xl),
+                  ),
+                  child: Text(actionLabel!),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -261,4 +299,23 @@ Widget? homeLeading(BuildContext context) {
     icon: const Icon(Icons.close),
     onPressed: () => context.go('/'),
   );
+}
+
+/// The pull handle every sheet starts with.
+class SheetGrabber extends StatelessWidget {
+  const SheetGrabber({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 36,
+        height: 5,
+        decoration: BoxDecoration(
+          color: context.colors.text.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(3),
+        ),
+      ),
+    );
+  }
 }

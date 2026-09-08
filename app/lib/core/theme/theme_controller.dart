@@ -24,11 +24,13 @@ class ThemeModeController extends Notifier<ThemeMode> {
     await ref.read(sharedPreferencesProvider).setString(_themeModeKey, mode.name);
   }
 
+  /// Dark is the design: a sports app under lights. Light exists and follows
+  /// the same rules, but it is the alternate, so an untouched install is dark.
   static ThemeMode _parse(String? raw) {
     return switch (raw) {
       'light' => ThemeMode.light,
-      'dark' => ThemeMode.dark,
-      _ => ThemeMode.system,
+      'system' => ThemeMode.system,
+      _ => ThemeMode.dark,
     };
   }
 }
