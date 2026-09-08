@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hacktracker/core/di/providers.dart';
@@ -48,6 +49,15 @@ class _TeamStatsScreenState extends ConsumerState<TeamStatsScreen> {
     );
     return AppScaffold(
       title: 'Team stats',
+      actions: [
+        IconButton(
+          tooltip: 'Spray chart',
+          icon: const Icon(Icons.scatter_plot),
+          onPressed: () => context.push(
+            '/spray?team=$teamId${selected == null ? '' : '&competition=$selected'}',
+          ),
+        ),
+      ],
       body: pas.when(
         loading: () => const SizedBox.shrink(),
         error: (e, _) => Center(child: Text('$e')),

@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hacktracker/core/di/repository_providers.dart';
@@ -26,6 +27,7 @@ class BoxScoreScreen extends ConsumerWidget {
       title: 'Box score',
       leading: homeLeading(context),
       actions: [
+        IconButton(tooltip:'Spray chart',icon:const Icon(Icons.scatter_plot),onPressed:()=>context.push('/spray?game=$gameId')),
         IconButton(
           tooltip: 'Share',
           icon: const Icon(Icons.ios_share),

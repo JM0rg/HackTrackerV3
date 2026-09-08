@@ -15,10 +15,17 @@ enum DiamondZone { first, second, third, homeRun, out }
 
 /// A finished play: the result plus whatever the follow-through asked for.
 class LoggedPlay {
-  const LoggedPlay({required this.result, this.outKind, this.rbi});
+  const LoggedPlay({
+    required this.result,
+    this.outKind,
+    this.rbi,
+    this.hitLocation,
+    this.qualityOfContact,
+  });
 
   final PaResult result;
   final OutKind? outKind;
+  final String? hitLocation, qualityOfContact;
 
   /// Personal games only: runs driven in on the play.
   final int? rbi;

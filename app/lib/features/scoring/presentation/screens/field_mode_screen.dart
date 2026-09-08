@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:hacktracker/features/scoring/presentation/widgets/contact_scorer.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -117,8 +118,16 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
     final repo = ref.read(scoringRepositoryProvider);
     final theirs = state.tracksScore && !state.replay.weBat;
     final textScale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0);
-    final heroHeight = state.tracksScore ? _hero * textScale : 0.0;
-    final cardHeight = (state.tracksScore ? _card : _cardHero) * textScale;
+    final heroHeight = state.tracksScore
+        ? (state.settings.modules.spray ? 100.0 : _hero) * textScale
+        : 0.0;
+    final cardHeight =
+        (state.settings.modules.spray
+            ? 76
+            : state.tracksScore
+            ? _card
+            : _cardHero) *
+        textScale;
     // Only a personal game keeping score ends its own half by hand.
     final byHand = state.personal && state.tracksScore && state.replay.weBat;
 
@@ -126,7 +135,11 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
       builder: (context, constraints) {
         // Reserve space for retry feedback; large text scrolls instead of
         // compressing the scoring controls.
-        final contentHeight = math.max(constraints.maxHeight, 828 * textScale);
+        final contact = state.settings.modules.spray;
+        final contentHeight = math.max(
+          constraints.maxHeight,
+          (contact ? 820 : 828) * textScale,
+        );
         final spare =
             contentHeight -
             _topRow -
@@ -214,6 +227,7 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
                             ),
                             child: Center(
                               child: ScoreHero(
+                                compact: state.settings.modules.spray,
                                 state: state,
                                 onTap: _handoff
                                     ? null
@@ -286,21 +300,54 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
                     ),
                   )
                 else ...[
-                  BatterCard(
-                    state: state,
-                    height: cardHeight,
-                    onUndo: state.hasLog && !_awaitingAnswer
-                        ? () => repo.undoLast(state.game)
-                        : null,
-                    onNext:
-                        state.hasLineup && !state.personal && !_awaitingAnswer
-                        ? () => _jump(repo, 1)
-                        : null,
-                    onPrevious:
-                        state.hasLineup && !state.personal && !_awaitingAnswer
-                        ? () => _jump(repo, -1)
-                        : null,
-                  ),
+                  if (contact)
+                    SizedBox(
+                      height: cardHeight,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 22,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                state.personal
+                                    ? 'Your at-bat'
+                                    : state.batter?.firstName ?? 'No lineup',
+                                style: context.text.titleLarge?.copyWith(
+                                  color: context.colors.field.on,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              state.batter == null
+                                  ? ''
+                                  : '${state.lineFor(state.batter!.id).hits} for ${state.lineFor(state.batter!.id).atBats}',
+                              style: context.text.titleMedium?.copyWith(
+                                color: context.colors.field.accent,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    BatterCard(
+                      state: state,
+                      height: cardHeight,
+                      onUndo: state.hasLog && !_awaitingAnswer
+                          ? () => repo.undoLast(state.game)
+                          : null,
+                      onNext:
+                          state.hasLineup && !state.personal && !_awaitingAnswer
+                          ? () => _jump(repo, 1)
+                          : null,
+                      onPrevious:
+                          state.hasLineup && !state.personal && !_awaitingAnswer
+                          ? () => _jump(repo, -1)
+                          : null,
+                    ),
                   // Keep the last play beside the field so undo stays within reach.
                   const SizedBox(height: 12),
                   AnimatedOpacity(
@@ -338,23 +385,39 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
                           ),
                         ),
                       ),
-                      child: Center(
-                        child: OneCardDiamond(
-                          state: state,
-                          geometry: geometry,
-                          enabled: state.hasLineup,
-                          showHint: state.replay.pas.length < 3,
-                          onCommit: (play) => _record(repo, play),
-                          onDraftChanged: (draft) =>
-                              repo.saveDraft(gameId, draft),
-                          onWave: (playerId) => _wave(repo, playerId),
-                          onPendingChanged: (pending) {
-                            if (mounted) {
-                              setState(() => _awaitingAnswer = pending);
-                            }
-                          },
-                        ),
-                      ),
+                      child: contact
+                          ? SingleChildScrollView(
+                              child: ContactScorer(
+                                key: ValueKey('contact-$gameId'),
+                                state: state,
+                                onWave: (id) => _wave(repo, id),
+                                onCommit: (play) => _record(repo, play),
+                                onDraftChanged: (draft) =>
+                                    repo.saveDraft(gameId, draft),
+                                onPendingChanged: (pending) {
+                                  if (mounted) {
+                                    setState(() => _awaitingAnswer = pending);
+                                  }
+                                },
+                              ),
+                            )
+                          : Center(
+                              child: OneCardDiamond(
+                                state: state,
+                                geometry: geometry,
+                                enabled: state.hasLineup,
+                                showHint: state.replay.pas.length < 3,
+                                onCommit: (play) => _record(repo, play),
+                                onDraftChanged: (draft) =>
+                                    repo.saveDraft(gameId, draft),
+                                onWave: (playerId) => _wave(repo, playerId),
+                                onPendingChanged: (pending) {
+                                  if (mounted) {
+                                    setState(() => _awaitingAnswer = pending);
+                                  }
+                                },
+                              ),
+                            ),
                     ),
                   ),
                   if (!state.hasLineup)
@@ -405,6 +468,8 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
       result: play.result,
       outKind: play.outKind,
       runsOnPlay: play.rbi,
+      hitLocation: play.hitLocation,
+      qualityOfContact: play.qualityOfContact,
     );
   }
 
@@ -428,10 +493,19 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
     return repo.jumpToBatter(game: state.game, index: next);
   }
 
+  ScoringRepository repoForContact(WidgetRef ref) =>
+      ref.read(scoringRepositoryProvider);
+
   Future<void> _openMenu(BuildContext context, WidgetRef ref) async {
     final action = await showGameMenu(context, state);
     if (action == null || !context.mounted) return;
     switch (action) {
+      case GameMenuAction.contactMode:
+        await repoForContact(
+          ref,
+        ).setContactMode(state.game, !state.settings.modules.spray);
+      case GameMenuAction.sprayChart:
+        context.push('/spray?game=$gameId');
       case GameMenuAction.boxScore:
         context.push('/games/$gameId/box');
       case GameMenuAction.editLineup:

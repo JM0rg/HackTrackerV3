@@ -205,12 +205,21 @@ class TrackerRepository {
     DateTime? startsAt,
     String homeAway = 'home',
     List<String> competitionIds = const [],
+    bool? trackContact,
   }) async {
     final now = _now();
     final id = _uuid.v4();
     final team = await (_db.select(
       _db.teams,
     )..where((t) => t.id.equals(teamId))).getSingle();
+    if (trackContact != null) {
+      final settings = jsonDecode(team.settings) as Map<String, dynamic>;
+      settings['modules'] = {
+        ...(settings['modules'] as Map? ?? {}),
+        'spray': trackContact,
+      };
+      await updateTeamSettings(teamId, settings);
+    }
     await _db
         .into(_db.games)
         .insert(
@@ -218,7 +227,19 @@ class TrackerRepository {
             id: id,
             teamId: Value(teamId),
             kind: const Value(GameKind.team),
-            settingsSnapshot: Value(team.settings),
+            settingsSnapshot: Value(
+              trackContact == null
+                  ? team.settings
+                  : jsonEncode({
+                      ...jsonDecode(team.settings) as Map<String, dynamic>,
+                      'modules': {
+                        ...((jsonDecode(team.settings) as Map)['modules']
+                                as Map? ??
+                            {}),
+                        'spray': trackContact,
+                      },
+                    }),
+            ),
             opponentId: Value(opponentId),
             park: Value(park),
             startsAt: Value(startsAt),

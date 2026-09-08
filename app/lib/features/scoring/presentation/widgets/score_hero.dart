@@ -10,8 +10,10 @@ class ScoreHero extends StatelessWidget {
     required this.onTap,
     this.onRun,
     this.onEndHalf,
+    this.compact = false,
   });
   final FieldModeState state;
+  final bool compact;
   final VoidCallback? onTap;
   final ValueChanged<int>? onRun;
   final VoidCallback? onEndHalf;
@@ -28,6 +30,65 @@ class ScoreHero extends StatelessWidget {
             : !state.personal
             ? ' · ${r.outs} out'
             : ''}${opponent == null || opponent.isEmpty ? '' : ' · $opponent'}';
+    if (compact) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: f.surface,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: f.border),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: onRun == null ? null : () => onRun!(1),
+                    child: Text(
+                      'US  ${r.ourRuns}',
+                      key: const Key('us-runs'),
+                      style: context.text.titleLarge?.copyWith(color: f.accent),
+                    ),
+                  ),
+                ),
+                Text(
+                  '${r.half == 'top' ? '↑' : '↓'} ${r.inning}',
+                  style: context.text.titleMedium?.copyWith(color: f.on),
+                ),
+                Expanded(
+                  child: Text(
+                    'THEM  ${r.theirRuns}',
+                    key: const Key('them-runs'),
+                    textAlign: TextAlign.right,
+                    style: context.text.titleLarge?.copyWith(color: f.on),
+                  ),
+                ),
+              ],
+            ),
+            GestureDetector(
+              key: const Key('situation'),
+              onTap: onTap,
+              behavior: HitTestBehavior.opaque,
+              child: SizedBox(
+                height: 44,
+                width: double.infinity,
+                child: Center(
+                  child: Text(
+                    where,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.text.labelSmall?.copyWith(color: f.muted),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),

@@ -1,3 +1,4 @@
+import 'package:hacktracker/features/stats/presentation/screens/spray_chart_screen.dart';
 import 'package:hacktracker/features/competitions/presentation/screens/competition_detail_screen.dart';
 import 'package:hacktracker/features/games/presentation/screens/games_screen.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +27,14 @@ final routerProvider = Provider<GoRouter>((ref) {
     navigatorKey: _rootKey,
     initialLocation: '/',
     routes: [
+      GoRoute(
+        path: '/spray',
+        builder: (c, s) => SprayChartScreen(
+          teamId: s.uri.queryParameters['team'],
+          gameId: s.uri.queryParameters['game'],
+          competitionId: s.uri.queryParameters['competition'],
+        ),
+      ),
       GoRoute(path: '/more', builder: (c, s) => const MoreScreen()),
       GoRoute(path: '/sign-in', builder: (c, s) => const SignInScreen()),
       GoRoute(path: '/team/edit', builder: (c, s) => const TeamEditScreen()),

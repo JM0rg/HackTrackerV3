@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:hacktracker/core/domain/models/contact_location.dart';
 import 'package:hacktracker/features/scoring/services/scoring_engine.dart';
 import 'package:hacktracker/core/domain/models/play_resolution.dart';
 import 'dart:math' as math;
@@ -98,6 +100,40 @@ class ScoringRepository {
     });
   }
 
+  Future<void> setContactMode(Game target, bool enabled) async {
+    await _db.transaction(() async {
+      final current = await game(target.id);
+      if (current == null) throw StateError('Game not found');
+      if (current.scoringDraft != null) {
+        throw StateError(
+          'Finish or cancel the current play before changing scoring mode.',
+        );
+      }
+      final team = current.teamId == null
+          ? null
+          : await (_db.select(
+              _db.teams,
+            )..where((t) => t.id.equals(current.teamId!))).getSingleOrNull();
+      final map =
+          jsonDecode(
+                current.settingsSnapshot ??
+                    team?.settings ??
+                    defaultTeamSettings,
+              )
+              as Map<String, dynamic>;
+      final modules = Map<String, dynamic>.from(map['modules'] as Map? ?? {});
+      modules['spray'] = enabled;
+      map['modules'] = modules;
+      await (_db.update(_db.games)..where((g) => g.id.equals(target.id))).write(
+        GamesCompanion(
+          settingsSnapshot: Value(jsonEncode(map)),
+          updatedAt: Value(_now()),
+          syncState: const Value(1),
+        ),
+      );
+    });
+  }
+
   /// Files one play, detail and all, in a single write. The screen asks its
   /// questions before calling this, so a play never lands half-answered.
   Future<void> recordPa({
@@ -116,6 +152,23 @@ class ScoringRepository {
       if (slots.isEmpty) return;
       final slot = slots[live.currentBatterIndex % slots.length];
       final batter = await _player(slot.playerId);
+      if (hitLocation != null && ContactLocation.parse(hitLocation) == null) {
+        throw const FormatException('Invalid ball location');
+      }
+      if (result == PaResult.walk || result == PaResult.strikeout) {
+        hitLocation = null;
+      } else if (hitLocation != null) {
+        final detail = ContactLocation.parse(hitLocation)!;
+        hitLocation = detail
+            .withDetails(
+              bats:
+                  detail.bats ??
+                  (['left', 'right'].contains(batter?.bats)
+                      ? batter?.bats
+                      : null),
+            )
+            .encode();
+      }
       final now = _now();
       await _db
           .into(_db.plateAppearances)
@@ -192,6 +245,7 @@ class ScoringRepository {
           paId,
           PlateAppearancesCompanion(
             result: Value(PaResult.strikeout.wire),
+            hitLocation: const Value(null),
             outKind: const Value(null),
           ),
         );
@@ -289,6 +343,9 @@ class ScoringRepository {
         paId,
         PlateAppearancesCompanion(
           result: Value(result.wire),
+          hitLocation: result == PaResult.walk || result == PaResult.strikeout
+              ? const Value(null)
+              : const Value.absent(),
           resolution: const Value(null),
           runsOnPlay: const Value(null),
           batterScored: const Value(null),
@@ -307,12 +364,25 @@ class ScoringRepository {
     String? fielderPlayerId,
   }) async {
     return _db.transaction(() async {
+      if (hitLocation != null && ContactLocation.parse(hitLocation) == null) {
+        throw const FormatException('Invalid ball location');
+      }
+      final row = await _pa(paId);
+      if (row == null || row.gameId != game.id) {
+        throw StateError('Play not in this game');
+      }
+      if (row.result == PaResult.walk.wire ||
+          row.result == PaResult.strikeout.wire) {
+        hitLocation = null;
+      }
       await _writePa(
         paId,
         PlateAppearancesCompanion(
           hitLocation: Value(hitLocation),
           qualityOfContact: Value(qualityOfContact),
-          fielderPlayerId: Value(fielderPlayerId),
+          fielderPlayerId: fielderPlayerId == null
+              ? const Value.absent()
+              : Value(fielderPlayerId),
         ),
       );
       await rebuild(game.id);
@@ -655,9 +725,23 @@ class ScoringRepository {
         player.teamId != game.teamId) {
       throw StateError('Choose a player from this team.');
     }
+    final contact = ContactLocation.parse(pa.hitLocation);
     await _writePa(
       paId,
       PlateAppearancesCompanion(
+        hitLocation: contact == null
+            ? const Value.absent()
+            : Value(
+                ContactLocation(
+                  x: contact.x,
+                  y: contact.y,
+                  region: contact.region,
+                  flight: contact.flight,
+                  bats: ['left', 'right'].contains(player.bats)
+                      ? player.bats
+                      : null,
+                ).encode(),
+              ),
         playerId: Value(playerId),
         personId: Value(player.personId),
         resolution: const Value(null),

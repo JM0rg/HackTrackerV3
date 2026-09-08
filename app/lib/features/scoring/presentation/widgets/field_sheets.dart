@@ -1,3 +1,5 @@
+import 'package:hacktracker/core/domain/models/contact_location.dart';
+import 'contact_scorer.dart';
 import 'package:hacktracker/features/scoring/presentation/widgets/runner_resolution_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -427,6 +429,30 @@ class _FixSheet extends ConsumerWidget {
       ),
     );
 
+    if (pa.requested != PaResult.walk && pa.requested != PaResult.strikeout) {
+      children.add(
+        ListTile(
+          title: const Text('Ball location / flight'),
+          subtitle: Text(
+            ContactLocation.parse(pa.hitLocation)?.label ?? 'Location unknown',
+          ),
+          onTap: () async {
+            final detail = await editContactLocation(
+              context,
+              ContactLocation.parse(pa.hitLocation),
+            );
+            if (detail != null) {
+              await repo.setPaDetail(
+                game: game,
+                paId: paId,
+                hitLocation: detail.encode(),
+                qualityOfContact: pa.qualityOfContact,
+              );
+            }
+          },
+        ),
+      );
+    }
     if (team && state.settings.modules.capturesDetail) {
       if (state.settings.modules.spray || state.settings.modules.fielding) {
         children.add(_sectionLabel(context, 'WHERE IT WENT'));
@@ -438,11 +464,21 @@ class _FixSheet extends ConsumerWidget {
               for (final zone in _sprayZones)
                 _Chip(
                   label: zone,
-                  on: pa.hitLocation == zone,
+                  on:
+                      ContactLocation.parse(pa.hitLocation)?.sprayRegion ==
+                      zone,
                   onTap: () => repo.setPaDetail(
                     game: game,
                     paId: paId,
-                    hitLocation: pa.hitLocation == zone ? null : zone,
+                    hitLocation: ContactLocation(
+                      region:
+                          ContactLocation.parse(pa.hitLocation)?.sprayRegion ==
+                              zone
+                          ? null
+                          : zone,
+                      flight: ContactLocation.parse(pa.hitLocation)?.flight,
+                      bats: ContactLocation.parse(pa.hitLocation)?.bats,
+                    ).encode(),
                     qualityOfContact: pa.qualityOfContact,
                   ),
                 ),
@@ -641,7 +677,14 @@ class _LogSheet extends ConsumerWidget {
   }
 }
 
-enum GameMenuAction { endGame, editLineup, boxScore, switchScope }
+enum GameMenuAction {
+  endGame,
+  editLineup,
+  boxScore,
+  switchScope,
+  contactMode,
+  sprayChart,
+}
 
 Future<GameMenuAction?> showGameMenu(
   BuildContext context,
@@ -664,6 +707,14 @@ Future<GameMenuAction?> showGameMenu(
     return _Frame(
       title: 'Game',
       children: [
+        item(Icons.scatter_plot, 'Spray chart', GameMenuAction.sprayChart),
+        item(
+          Icons.sports_baseball_outlined,
+          state.settings.modules.spray
+              ? 'Use base-drag scoring'
+              : 'Track ball location',
+          GameMenuAction.contactMode,
+        ),
         item(Icons.table_chart_outlined, 'Box score', GameMenuAction.boxScore),
         if (!state.personal)
           item(Icons.list_alt, 'Edit lineup', GameMenuAction.editLineup),

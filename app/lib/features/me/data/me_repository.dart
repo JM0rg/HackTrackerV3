@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:hacktracker/core/domain/models/game_kind.dart';
 import 'package:hacktracker/core/domain/models/game_scope.dart';
@@ -257,6 +258,7 @@ class MeRepository {
     String? playedForName,
     String? playedForTeamId,
     String scope = GameScope.bat,
+    bool trackContact = false,
     String homeAway = 'home',
   }) async {
     final me = await ensureMe();
@@ -274,6 +276,11 @@ class MeRepository {
           GamesCompanion.insert(
             id: id,
             kind: const Value(GameKind.personal),
+            settingsSnapshot: Value(
+              jsonEncode({
+                'modules': {'spray': trackContact},
+              }),
+            ),
             scope: Value(scope),
             opponentName: Value(clean(opponentName)),
             playedForName: Value(clean(playedForName)),

@@ -50,8 +50,10 @@ class _TeamSettingsScreenState extends ConsumerState<TeamSettingsScreen> {
               final id = teamId ?? list.first.id;
               final team = list.where((t) => t.id == id).firstOrNull;
               if (team == null) return const SizedBox.shrink();
-              final settings = jsonDecode(team.settings) as Map<String, dynamic>;
-              final modules = (settings['modules'] as Map<String, dynamic>? ?? {});
+              final settings =
+                  jsonDecode(team.settings) as Map<String, dynamic>;
+              final modules =
+                  (settings['modules'] as Map<String, dynamic>? ?? {});
               final rules = (settings['rules'] as Map<String, dynamic>? ?? {});
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -59,40 +61,53 @@ class _TeamSettingsScreenState extends ConsumerState<TeamSettingsScreen> {
                   Text('Scoring modules', style: context.text.titleMedium),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Spray chart'),
+                    title: const Text('Track ball location'),
+                    subtitle: const Text(
+                      'Default for location scoring in new games',
+                    ),
                     value: modules['spray'] == true,
-                    onChanged: (v) => _set(team, settings, modules: {'spray': v}),
+                    onChanged: (v) =>
+                        _set(team, settings, modules: {'spray': v}),
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Fielding'),
                     value: modules['fielding'] == true,
-                    onChanged: (v) => _set(team, settings, modules: {'fielding': v}),
+                    onChanged: (v) =>
+                        _set(team, settings, modules: {'fielding': v}),
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Quality of contact'),
                     value: modules['contact'] == true,
-                    onChanged: (v) => _set(team, settings, modules: {'contact': v}),
+                    onChanged: (v) =>
+                        _set(team, settings, modules: {'contact': v}),
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Hide leaderboard'),
                     value: rules['hideLeaderboard'] == true,
-                    onChanged: (v) => _set(team, settings, rules: {'hideLeaderboard': v}),
+                    onChanged: (v) =>
+                        _set(team, settings, rules: {'hideLeaderboard': v}),
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Coed: male walk is two bases'),
                     value: rules['coedMaleWalkTwoBases'] == true,
-                    onChanged: (v) => _set(team, settings, rules: {'coedMaleWalkTwoBases': v}),
+                    onChanged: (v) => _set(
+                      team,
+                      settings,
+                      rules: {'coedMaleWalkTwoBases': v},
+                    ),
                   ),
                   SizedBox(height: context.themeSpacing.md),
                   Text('Sync & invites', style: context.text.titleMedium),
                   SizedBox(height: context.themeSpacing.sm),
                   if (!signedIn)
                     AppCard(
-                      onTap: Env.hasSupabase ? () => context.push('/sign-in') : null,
+                      onTap: Env.hasSupabase
+                          ? () => context.push('/sign-in')
+                          : null,
                       child: Text(
                         'Sign in to invite teammates and sync this team.',
                         style: context.text.bodyMedium,
@@ -102,16 +117,20 @@ class _TeamSettingsScreenState extends ConsumerState<TeamSettingsScreen> {
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Create player invite'),
-                      subtitle: Text(_invite ?? 'Generates a code teammates can join with'),
+                      subtitle: Text(
+                        _invite ?? 'Generates a code teammates can join with',
+                      ),
                       onTap: () async {
-                        final code = await ref.read(trackerRepositoryProvider).createInvite(
-                              teamId: id,
-                              role: 'player',
-                            );
+                        final code = await ref
+                            .read(trackerRepositoryProvider)
+                            .createInvite(teamId: id, role: 'player');
                         setState(() => _invite = code);
                       },
                     ),
-                    AppTextField(label: 'Join a team with a code', controller: _join),
+                    AppTextField(
+                      label: 'Join a team with a code',
+                      controller: _join,
+                    ),
                     SizedBox(height: context.themeSpacing.sm),
                     AppButton(
                       label: 'Join',
@@ -155,6 +174,8 @@ class _TeamSettingsScreenState extends ConsumerState<TeamSettingsScreen> {
         ...rules,
       };
     }
-    await ref.read(trackerRepositoryProvider).updateTeamSettings(team.id as String, next);
+    await ref
+        .read(trackerRepositoryProvider)
+        .updateTeamSettings(team.id as String, next);
   }
 }

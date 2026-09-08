@@ -1,3 +1,4 @@
+import 'package:hacktracker/core/domain/models/contact_location.dart';
 import 'package:flutter/material.dart';
 import 'package:hacktracker/core/domain/pa_result.dart';
 import 'package:hacktracker/core/theme/theme_context_extensions.dart';
@@ -58,6 +59,8 @@ class LastPlayLine extends StatelessWidget {
     } else if (pa.runs > 0) {
       extra.add('${pa.runs} run${pa.runs == 1 ? '' : 's'}');
     }
+    final location = ContactLocation.parse(pa.hitLocation);
+    if (location?.located == true) extra.add(location!.sprayRegion!);
     return [play, ...extra].join(' · ');
   }
 

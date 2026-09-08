@@ -267,6 +267,11 @@ class _Header extends StatelessWidget {
               ),
             ),
             IconButton(
+              tooltip: 'Your spray chart',
+              icon: const Icon(Icons.scatter_plot),
+              onPressed: () => context.push('/spray'),
+            ),
+            IconButton(
               tooltip: 'Account & settings',
               icon: Icon(Icons.tune_rounded, color: colors.muted),
               onPressed: () => context.push('/more'),
