@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:hacktracker/features/premium/data/plan_provider.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:hacktracker/features/teams/data/tracker_repository.dart';
@@ -79,6 +80,27 @@ void main() {
     bool light = false,
     bool premium = true,
   }) async {
+    if (screen is FieldModeScreen) {
+      final game = (await scoring.game(screen.gameId))!;
+      if (game.scoringDraft == null) {
+        final slots = await scoring.lineup(game.id);
+        final pas = await scoring.plateAppearances(game.id);
+        final events = await scoring.gameEvents(game.id);
+        await scoring.saveDraft(
+          game.id,
+          jsonEncode({
+            'version': 2,
+            'batterId': slots[game.currentBatterIndex % slots.length].playerId,
+            'sequence': [
+              0,
+              ...pas.map((p) => p.sequence),
+              ...events.map((e) => e.sequence),
+            ].reduce(math.max),
+            'phase': 'location',
+          }),
+        );
+      }
+    }
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     addTearDown(tester.view.reset);
@@ -125,32 +147,6 @@ void main() {
     await t.pumpWidget(const SizedBox.shrink());
     await t.pumpAndSettle();
   }
-
-  testWidgets('plan controls existing games and preserves a pending play', (
-    t,
-  ) async {
-    final id = await me.createPersonalGame(trackContact: true);
-    await pump(t, FieldModeScreen(gameId: id), premium: false);
-    expect(find.byKey(const Key('contact-field')), findsNothing);
-    await finish(t);
-    await pump(t, FieldModeScreen(gameId: id));
-    await point(t);
-    final draft = (await scoring.game(id))!.scoringDraft;
-    await finish(t);
-    await pump(t, FieldModeScreen(gameId: id), premium: false);
-    expect(find.byKey(const Key('contact-field')), findsOneWidget);
-    expect(find.text('Area / optional detail'), findsNothing);
-    expect((await scoring.game(id))!.scoringDraft, draft);
-    await tap(t, find.byKey(const Key('contact-double')));
-    await tap(t, find.byKey(const Key('contact-rbi-0')));
-    expect((await scoring.plateAppearances(id)).single.hitLocation, isNotNull);
-    expect(find.byKey(const Key('contact-field')), findsNothing);
-    await finish(t);
-    final other = await me.createPersonalGame(trackContact: false);
-    await pump(t, FieldModeScreen(gameId: other));
-    expect(find.byKey(const Key('contact-field')), findsOneWidget);
-    await finish(t);
-  });
 
   testWidgets(
     'location waits for result and RBI; draft survives screen recreation',

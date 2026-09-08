@@ -1,7 +1,7 @@
 @Tags(['golden'])
 library;
-import 'package:hacktracker/features/premium/data/plan_provider.dart';
 
+import 'package:hacktracker/features/premium/data/plan_provider.dart';
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -44,13 +44,18 @@ void main() {
     WidgetTester tester,
     String gameId, {
     bool outdoor = false,
+    bool premium = false,
+    double scale = 1,
   }) async {
     tester.view.devicePixelRatio = 2;
     tester.view.physicalSize = const Size(430 * 2, 932 * 2);
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [databaseProvider.overrideWithValue(db), locationTrackingProvider.overrideWithValue(false)],
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          locationTrackingProvider.overrideWithValue(premium),
+        ],
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: outdoor
@@ -67,6 +72,12 @@ void main() {
                   ],
                 )
               : AppTheme.dark(fontFamily: 'Roboto'),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          ),
           home: FieldModeScreen(gameId: gameId),
         ),
       ),
@@ -105,6 +116,38 @@ void main() {
     );
     return gameId;
   }
+
+  testWidgets('golden: premium review field and save with large text', (
+    tester,
+  ) async {
+    for (final scale in [1.0, 2.0]) {
+      final id = await me.createPersonalGame();
+      await pump(tester, id, premium: true, scale: scale);
+      final target = find.byKey(const Key('zone-second'));
+      await tester.ensureVisible(target);
+      await tester.pumpAndSettle();
+      await tester.tap(target);
+      await tester.pumpAndSettle();
+      expect(find.text('Hitter → 2nd base'), findsOneWidget);
+      expect(find.text('Where did the ball go?'), findsOneWidget);
+      await expectLater(
+        find.byType(FieldModeScreen),
+        matchesGoldenFile('goldens/review_location_${scale.toInt()}.png'),
+      );
+      final save = find.byKey(const Key('save-play'));
+      await tester.ensureVisible(save);
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(FieldModeScreen),
+        matchesGoldenFile('goldens/review_submit_${scale.toInt()}.png'),
+      );
+      expect(tester.takeException(), isNull);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect((await scoring.plateAppearances(id)).length, 1);
+      await finish(tester);
+    }
+  });
 
   testWidgets('golden: outdoor field contrast', (tester) async {
     final gameId = await teamGame();

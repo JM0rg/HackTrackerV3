@@ -1,3 +1,6 @@
+import 'package:hacktracker/features/scoring/presentation/widgets/one_card_diamond.dart';
+import 'package:hacktracker/features/scoring/presentation/widgets/contact_field.dart';
+import 'package:hacktracker/core/domain/models/contact_location.dart';
 import 'package:hacktracker/features/premium/data/plan_provider.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -32,15 +35,29 @@ void main() {
   tearDown(() => db.close());
 
   /// iPhone-sized, so the diamond lands at its full 300pt width.
-  Future<void> pump(WidgetTester tester, String gameId) async {
+  Future<void> pump(
+    WidgetTester tester,
+    String gameId, {
+    bool premium = false,
+    double scale = 1,
+  }) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [databaseProvider.overrideWithValue(db), locationTrackingProvider.overrideWithValue(false)],
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          locationTrackingProvider.overrideWithValue(premium),
+        ],
         child: MaterialApp(
           theme: AppTheme.dark(),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          ),
           home: FieldModeScreen(gameId: gameId),
         ),
       ),
@@ -57,13 +74,28 @@ void main() {
   }
 
   Future<void> tap(WidgetTester tester, Finder finder) async {
+    await tester.ensureVisible(finder);
+    await tester.pumpAndSettle();
     await tester.tap(finder);
     await settle(tester);
   }
 
   /// Answer the row under the diamond.
-  Future<void> answer(WidgetTester tester, String key) =>
-      tap(tester, find.byKey(Key(key)));
+  Future<void> save(WidgetTester tester) =>
+      tap(tester, find.byKey(const Key('save-play')));
+  Future<void> answer(WidgetTester tester, String key) async {
+    final mapped = key
+        .replaceFirst('reach-', 'result-')
+        .replaceFirst('how-k', 'result-strikeout')
+        .replaceFirst('ask-cancel', 'cancel-play');
+    await tap(tester, find.byKey(Key(mapped)));
+    if (mapped == 'cancel-play') return;
+    if (mapped.startsWith('rbi-') ||
+        mapped.startsWith('how-') ||
+        find.byKey(const Key('rbi-0')).evaluate().isEmpty) {
+      await save(tester);
+    }
+  }
 
   /// Read the diamond's real size back, so drags land wherever it was laid out.
   FieldGeometry geo(WidgetTester tester) =>
@@ -113,6 +145,137 @@ void main() {
 
   Future<Game> game(String id) async => (await tracker.game(id))!;
 
+  testWidgets('hitter follows first then second before review appears', (
+    tester,
+  ) async {
+    final id = await teamGame();
+    await pump(tester, id, premium: true);
+    await tester.tap(find.byKey(const Key('zone-second')));
+    await tester.pump();
+    expect(find.byKey(const Key('save-play')), findsNothing);
+    await tester.pump(const Duration(milliseconds: 240));
+    final g = tester
+        .widget<OneCardDiamond>(find.byType(OneCardDiamond))
+        .geometry;
+    final chip = tester.widget<AnimatedPositioned>(
+      find.byKey(const Key('batter-chip')),
+    );
+    expect(chip.left, closeTo(g.first.dx, 1));
+    expect(chip.top, closeTo(g.first.dy, 1));
+    expect(find.byKey(const Key('contact-field')), findsNothing);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('contact-field')), findsOneWidget);
+    expect(await scoring.plateAppearances(id), isEmpty);
+    await finish(tester);
+  });
+
+  testWidgets(
+    'premium reviews location and inputs freely before one atomic save',
+    (tester) async {
+      final id = await me.createPersonalGame();
+      await pump(tester, id, premium: true);
+      expect(find.byKey(const Key('contact-field')), findsNothing);
+      await dragChip(tester, toSecond(tester));
+      expect(find.text('Hitter → 2nd base'), findsOneWidget);
+      expect(await scoring.plateAppearances(id), isEmpty);
+      final field = find.byKey(const Key('contact-field'));
+      Future<void> locate(double x, double y) async {
+        await tester.ensureVisible(field);
+        await tester.pumpAndSettle();
+        final g = ContactFieldGeometry(tester.getSize(field));
+        await tester.tapAt(tester.getTopLeft(field) + g.point(x, y));
+        await settle(tester);
+      }
+
+      await tap(tester, find.byKey(const Key('rbi-2')));
+      await locate(-.2, .6);
+      await locate(.3, .7);
+      expect(await scoring.plateAppearances(id), isEmpty);
+      final draft = (await scoring.game(id))!.scoringDraft;
+      expect(draft, contains('"version":3'));
+      await finish(tester);
+      await pump(tester, id, premium: true);
+      expect(find.text('Hitter → 2nd base'), findsOneWidget);
+      expect(
+        tester.widget<ContactField>(find.byType(ContactField)).location!.x,
+        closeTo(.3, .001),
+      );
+      await save(tester);
+      final pa = (await scoring.plateAppearances(id)).single;
+      expect(pa.result, 'double');
+      expect(pa.rbi, 2);
+      expect(ContactLocation.parse(pa.hitLocation)!.x, closeTo(.3, .001));
+      expect((await scoring.game(id))!.scoringDraft, isNull);
+      expect(find.byKey(const Key('diamond')), findsOneWidget);
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'premium walks clear location, cancellation saves nothing, free has no picker',
+    (tester) async {
+      final id = await me.createPersonalGame();
+      await pump(tester, id, premium: true);
+      await dragChip(tester, toFirst(tester));
+      final field = find.byKey(const Key('contact-field'));
+      await tester.ensureVisible(field);
+      await tester.tapAt(
+        tester.getTopLeft(field) +
+            ContactFieldGeometry(tester.getSize(field)).point(.2, .6),
+      );
+      await settle(tester);
+      await tap(tester, find.byKey(const Key('result-walk')));
+      expect(find.byKey(const Key('contact-field')), findsNothing);
+      expect(await scoring.plateAppearances(id), isEmpty);
+      await save(tester);
+      expect((await scoring.plateAppearances(id)).single.hitLocation, isNull);
+      await dragChip(tester, toSecond(tester));
+      await tap(tester, find.byKey(const Key('cancel-play')));
+      expect((await scoring.plateAppearances(id)).length, 1);
+      expect((await scoring.game(id))!.scoringDraft, isNull);
+      await finish(tester);
+      await pump(tester, id, premium: false);
+      await dragChip(tester, toSecond(tester));
+      expect(find.byKey(const Key('contact-field')), findsNothing);
+      expect((await scoring.plateAppearances(id)).length, 1);
+      await save(tester);
+      expect((await scoring.plateAppearances(id)).length, 2);
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'premium review survives a downgrade and failed save without duplicates',
+    (tester) async {
+      final id = await teamGame();
+      await pump(tester, id, premium: true);
+      await dragChip(tester, toSecond(tester));
+      final field = find.byKey(const Key('contact-field'));
+      await tester.ensureVisible(field);
+      await tester.tapAt(
+        tester.getTopLeft(field) +
+            ContactFieldGeometry(tester.getSize(field)).point(.2, .6),
+      );
+      await settle(tester);
+      await finish(tester);
+      await pump(tester, id, premium: false);
+      expect(find.byKey(const Key('contact-field')), findsNothing);
+      await db.customStatement(
+        "CREATE TRIGGER reject_pa BEFORE INSERT ON plate_appearances BEGIN SELECT RAISE(ABORT, 'test'); END",
+      );
+      await save(tester);
+      expect(await scoring.plateAppearances(id), isEmpty);
+      expect(find.text('Play not saved. Try Save play again.'), findsOneWidget);
+      await db.customStatement('DROP TRIGGER reject_pa');
+      await save(tester);
+      expect(
+        (await scoring.plateAppearances(id)).single.hitLocation,
+        isNotNull,
+      );
+      await finish(tester);
+    },
+  );
+
   testWidgets('an unanswered play survives leaving and reopening field mode', (
     tester,
   ) async {
@@ -122,7 +285,7 @@ void main() {
     expect((await tracker.game(gameId))!.scoringDraft, isNotNull);
     await finish(tester);
     await pump(tester, gameId);
-    expect(find.byKey(const Key('reach-single')), findsOneWidget);
+    expect(find.byKey(const Key('result-single')), findsOneWidget);
     await answer(tester, 'reach-single');
     expect((await scoring.plateAppearances(gameId)).length, 1);
     expect((await tracker.game(gameId))!.scoringDraft, isNull);
@@ -138,6 +301,7 @@ void main() {
     expect(find.text('Done'), findsOneWidget);
     expect(find.byTooltip('Game menu'), findsNothing);
     await tap(tester, find.byKey(const Key('zone-second')));
+    await save(tester);
     expect((await scoring.plateAppearances(id)).length, 1);
     await tap(tester, find.byKey(const Key('field-handoff')));
     expect(find.byTooltip('Game menu'), findsOneWidget);
@@ -153,11 +317,12 @@ void main() {
       "CREATE TRIGGER reject_save BEFORE UPDATE ON games BEGIN SELECT RAISE(ABORT, 'test failure'); END",
     );
     await tap(tester, find.byKey(const Key('zone-second')));
-    expect(find.text('Play not saved.'), findsOneWidget);
+    await save(tester);
+    expect(find.text('Play not saved. Try Save play again.'), findsOneWidget);
     expect(await scoring.plateAppearances(id), isEmpty);
     await db.customStatement('DROP TRIGGER reject_save');
-    await tap(tester, find.text('Retry'));
-    expect(find.text('Play not saved.'), findsNothing);
+    await save(tester);
+    expect(find.text('Play not saved. Try Save play again.'), findsNothing);
     expect((await scoring.plateAppearances(id)).length, 1);
     await finish(tester);
   });
@@ -193,7 +358,7 @@ void main() {
     await dragChip(tester, toFirst(tester));
     // Nothing is filed until the row is answered.
     expect(await scoring.plateAppearances(gameId), isEmpty);
-    expect(find.byKey(const Key('ask-reach')), findsOneWidget);
+    expect(find.byKey(const Key('result-single')), findsOneWidget);
 
     await answer(tester, 'reach-single');
 
@@ -211,8 +376,9 @@ void main() {
     await pump(tester, gameId);
 
     await tap(tester, find.byKey(const Key('zone-second')));
+    await save(tester);
 
-    // Second base is unambiguous in a team game, so it files at once.
+    // Explicit submission commits the selected double.
     expect((await scoring.plateAppearances(gameId)).single.result, 'double');
     await finish(tester);
   });
@@ -236,10 +402,10 @@ void main() {
   testWidgets('a flick asks how before it files anything', (tester) async {
     final gameId = await teamGame();
     await pump(tester, gameId);
-    expect(find.byKey(const Key('ask-how')), findsNothing);
+    expect(find.byKey(const Key('how-ground')), findsNothing);
 
     await dragChip(tester, const Offset(0, 70));
-    expect(find.byKey(const Key('ask-how')), findsOneWidget);
+    expect(find.byKey(const Key('how-ground')), findsOneWidget);
     for (final label in ['Fly', 'Ground', 'Line', 'K']) {
       expect(find.text(label), findsOneWidget, reason: label);
     }
@@ -272,12 +438,15 @@ void main() {
     await pump(tester, gameId);
 
     await dragChip(tester, const Offset(0, 70));
-    expect(find.byKey(const Key('ask-how')), findsOneWidget);
+    expect(find.byKey(const Key('how-ground')), findsOneWidget);
 
-    // The chip will not move again while the question stands.
-    await dragChip(tester, toFirst(tester));
+    // An incomplete out cannot be saved; the next batter is not active.
+    expect(
+      tester.widget<FilledButton>(find.byKey(const Key('save-play'))).onPressed,
+      isNull,
+    );
     expect(await scoring.plateAppearances(gameId), isEmpty);
-    expect(find.byKey(const Key('ask-how')), findsOneWidget);
+    expect(find.byKey(const Key('how-ground')), findsOneWidget);
 
     await answer(tester, 'how-line');
     expect((await scoring.plateAppearances(gameId)).single.outKind, 'line');
@@ -292,10 +461,11 @@ void main() {
     await answer(tester, 'ask-cancel');
 
     expect(await scoring.plateAppearances(gameId), isEmpty);
-    expect(find.byKey(const Key('ask-how')), findsNothing);
+    expect(find.byKey(const Key('how-ground')), findsNothing);
 
     // And the chip is free again.
     await dragChip(tester, toSecond(tester));
+    await save(tester);
     expect((await scoring.plateAppearances(gameId)).single.result, 'double');
     await finish(tester);
   });
@@ -317,7 +487,7 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('reaching on an error and a fielders choice are one tap each', (
+  testWidgets('error and fielders choice remain selectable before saving', (
     tester,
   ) async {
     final gameId = await teamGame();
@@ -343,6 +513,7 @@ void main() {
     await pump(tester, gameId);
 
     await dragChip(tester, toThird(tester));
+    await save(tester);
     await dragChip(tester, const Offset(0, 70));
     await answer(tester, 'how-fly');
     await tester.tapAt(
@@ -364,6 +535,7 @@ void main() {
     final g = geo(tester);
     await dragChip(tester, Offset(0, -(g.home.dy - g.fenceY + 12)));
 
+    await save(tester);
     expect((await scoring.plateAppearances(gameId)).single.result, 'homer');
     expect((await game(gameId)).ourRuns, 1);
     await finish(tester);
@@ -387,6 +559,7 @@ void main() {
     await dragChip(tester, toFirst(tester));
     await answer(tester, 'reach-single');
     await dragChip(tester, toSecond(tester));
+    await save(tester);
     expect((await game(gameId)).ourRuns, 0);
 
     // Ada went first to third on the double; her chip sits on the bag.
@@ -475,6 +648,7 @@ void main() {
     await pump(tester, gameId);
 
     await dragChip(tester, toThird(tester));
+    await save(tester);
     await dragChip(tester, const Offset(0, 70));
     await answer(tester, 'how-fly');
     await tap(tester, find.byKey(const Key('last-play')));
@@ -585,7 +759,7 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('a personal hit asks how, then RBI, before it files', (
+  testWidgets('a personal hit reviews result and RBI before saving', (
     tester,
   ) async {
     await me.ensureMe();
@@ -598,16 +772,16 @@ void main() {
 
     await dragChip(tester, toFirst(tester));
     expect(find.byType(AlertDialog), findsNothing);
-    expect(find.byKey(const Key('ask-reach')), findsOneWidget);
+    expect(find.byKey(const Key('result-single')), findsOneWidget);
     expect(await scoring.plateAppearances(gameId), isEmpty);
 
     await answer(tester, 'reach-single');
-    expect(find.byKey(const Key('ask-rbi')), findsOneWidget);
+    expect(find.byKey(const Key('rbi-0')), findsOneWidget);
     expect(find.text('RBI'), findsOneWidget);
     for (var n = 0; n <= 4; n++) {
       expect(find.byKey(Key('rbi-$n')), findsOneWidget);
     }
-    // Still nothing filed: RBI is not assumed to be zero.
+    // Still nothing filed: choosing an input is not submission.
     expect(await scoring.plateAppearances(gameId), isEmpty);
 
     await answer(tester, 'rbi-2');
@@ -621,13 +795,13 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('a personal double asks only for RBI', (tester) async {
+  testWidgets('a personal double allows RBI review', (tester) async {
     await me.ensureMe();
     final gameId = await me.createPersonalGame(opponentName: 'Reds');
     await pump(tester, gameId);
 
     await dragChip(tester, toSecond(tester));
-    expect(find.byKey(const Key('ask-rbi')), findsOneWidget);
+    expect(find.byKey(const Key('rbi-0')), findsOneWidget);
     expect(await scoring.plateAppearances(gameId), isEmpty);
 
     await answer(tester, 'rbi-0');
@@ -655,14 +829,14 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('a personal out asks how, not for RBI', (tester) async {
+  testWidgets('a personal out allows RBI review', (tester) async {
     await me.ensureMe();
     final gameId = await me.createPersonalGame(opponentName: 'Reds');
     await pump(tester, gameId);
 
     await dragChip(tester, const Offset(0, 70));
-    expect(find.byKey(const Key('ask-how')), findsOneWidget);
-    expect(find.byKey(const Key('ask-rbi')), findsNothing);
+    expect(find.byKey(const Key('how-ground')), findsOneWidget);
+    expect(find.byKey(const Key('rbi-0')), findsOneWidget);
 
     await answer(tester, 'how-ground');
     final pa = (await scoring.plateAppearances(gameId)).single;
@@ -683,7 +857,7 @@ void main() {
     await answer(tester, 'reach-single');
 
     // Runs come off the diamond, so there is nothing to type.
-    expect(find.byKey(const Key('ask-rbi')), findsNothing);
+    expect(find.byKey(const Key('rbi-0')), findsNothing);
     expect(find.byKey(const Key('wave-hint')), findsOneWidget);
     await finish(tester);
   });
@@ -697,7 +871,7 @@ void main() {
 
     expect(find.text('Pick a batting order to start'), findsWidgets);
     await dragChip(tester, toFirst(tester));
-    expect(find.byKey(const Key('ask-reach')), findsNothing);
+    expect(find.byKey(const Key('result-single')), findsNothing);
     expect(await scoring.plateAppearances(gameId), isEmpty);
     await finish(tester);
   });

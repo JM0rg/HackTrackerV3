@@ -121,7 +121,7 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
         if (raw['version'] == 2) return true;
       }
     } catch (_) {}
-    return premium;
+    return false;
   }
 
   static const _topRow = 48.0;
@@ -142,11 +142,12 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
     final textScale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0);
     final premium = ref.watch(locationTrackingProvider);
     final contact = _contactMode(premium);
+    final compact = contact || _awaitingAnswer;
     final heroHeight = state.tracksScore
-        ? (contact ? 100.0 : _hero) * textScale
+        ? (compact ? 100.0 : _hero) * textScale
         : 0.0;
     final cardHeight =
-        (contact
+        (compact
             ? 76
             : state.tracksScore
             ? _card
@@ -161,7 +162,9 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
         // compressing the scoring controls.
         final contentHeight = math.max(
           constraints.maxHeight,
-          (contact ? 820 : 828) * textScale,
+          _awaitingAnswer && !contact
+              ? _topRow + heroHeight + cardHeight + _lastLine + _nextUp + 320
+              : (contact ? 820 : 828) * textScale,
         );
         final spare =
             contentHeight -
@@ -250,7 +253,7 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
                             ),
                             child: Center(
                               child: ScoreHero(
-                                compact: contact,
+                                compact: compact,
                                 state: state,
                                 onTap: _handoff
                                     ? null
@@ -323,7 +326,7 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
                     ),
                   )
                 else ...[
-                  if (contact)
+                  if (compact)
                     SizedBox(
                       height: cardHeight,
                       child: Padding(
@@ -425,22 +428,38 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
                                 },
                               ),
                             )
-                          : Center(
-                              child: OneCardDiamond(
-                                state: state,
-                                geometry: geometry,
-                                enabled: state.hasLineup,
-                                showHint: state.replay.pas.length < 3,
-                                onCommit: (play) => _record(repo, play),
-                                onDraftChanged: (draft) =>
-                                    repo.saveDraft(gameId, draft),
-                                onWave: (playerId) => _wave(repo, playerId),
-                                onPendingChanged: (pending) {
-                                  if (mounted) {
-                                    setState(() => _awaitingAnswer = pending);
-                                  }
-                                },
-                              ),
+                          : LayoutBuilder(
+                              builder: (context, constraints) =>
+                                  SingleChildScrollView(
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        minHeight: constraints.maxHeight,
+                                      ),
+                                      child: Center(
+                                        child: OneCardDiamond(
+                                          trackLocation: premium,
+                                          reviewHeight: constraints.maxHeight,
+                                          state: state,
+                                          geometry: geometry,
+                                          enabled: state.hasLineup,
+                                          showHint: state.replay.pas.length < 3,
+                                          onCommit: (play) =>
+                                              _record(repo, play),
+                                          onDraftChanged: (draft) =>
+                                              repo.saveDraft(gameId, draft),
+                                          onWave: (playerId) =>
+                                              _wave(repo, playerId),
+                                          onPendingChanged: (pending) {
+                                            if (mounted) {
+                                              setState(
+                                                () => _awaitingAnswer = pending,
+                                              );
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                             ),
                     ),
                   ),

@@ -43,9 +43,9 @@ class PlanPreview extends ConsumerWidget {
             Plan.free =>
               'Free keeps games on this device with base-drag scoring.',
             Plan.playerPlus =>
-              'Player Plus enables ball-location scoring. Personal cloud backup remains a preview.',
+              'Player Plus adds ball location to play review. Personal cloud backup remains a preview.',
             Plan.teamPlus =>
-              'Team Plus enables ball-location scoring. Team sharing and cloud backup remain previews.',
+              'Team Plus adds ball location to play review. Team sharing and cloud backup remain previews.',
           }),
           const SizedBox(height: 8),
           Text(

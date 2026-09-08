@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'contact_field.dart';
+import 'package:hacktracker/core/domain/models/contact_location.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -68,12 +70,16 @@ class OneCardDiamond extends StatefulWidget {
     required this.onWave,
     required this.onPendingChanged,
     this.onDraftChanged,
+    this.trackLocation = false,
+    this.reviewHeight = 600,
   });
 
   final FieldModeState state;
   final FieldGeometry geometry;
   final bool enabled;
   final bool showHint;
+  final bool trackLocation;
+  final double reviewHeight;
 
   /// Called once, when every question has an answer.
   final FutureOr<void> Function(LoggedPlay) onCommit;
@@ -88,7 +94,14 @@ class OneCardDiamond extends StatefulWidget {
   State<OneCardDiamond> createState() => _OneCardDiamondState();
 }
 
-class _OneCardDiamondState extends State<OneCardDiamond> {
+class _OneCardDiamondState extends State<OneCardDiamond>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _run;
+  DiamondZone? _destination;
+  ContactLocation? _location;
+  String? _quality;
+  bool _review = false;
+  String? _error;
   Offset? _drag;
   DiamondZone? _zone;
 
@@ -115,6 +128,13 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
   @override
   void initState() {
     super.initState();
+    _run =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 480),
+        )..addListener(() {
+          if (mounted) setState(() {});
+        });
     _baseOf = _basesOf(widget.state);
     _justArrived = _baseOf.keys.toSet();
     _restoreDraft();
@@ -135,7 +155,10 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
     final encoded = clear
         ? null
         : jsonEncode({
-            'version': 1,
+            'version': _review ? 3 : 1,
+            'destination': _destination?.name,
+            'location': _location?.encode(),
+            'quality': _quality,
             'batterId': widget.state.batter?.id,
             'sequence': _lastSequence,
             'result': (ready?.result ?? pending?.result)?.wire,
@@ -159,7 +182,7 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
     if (source == null) return;
     try {
       final raw = jsonDecode(source) as Map<String, dynamic>;
-      if (raw['version'] != 1 ||
+      if (![1, 3].contains(raw['version']) ||
           raw['batterId'] != widget.state.batter?.id ||
           raw['sequence'] != _lastSequence) {
         return;
@@ -174,7 +197,22 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
         (raw['targetY'] as num).toDouble() * _geo.height,
       );
       _settleHidden = raw['hidden'] == true;
-      if (questions.isEmpty) {
+      if (raw['version'] == 3) {
+        _review = true;
+        _destination = DiamondZone.values.byName(raw['destination'] as String);
+        _location = ContactLocation.parse(raw['location'] as String?);
+        _quality = raw['quality'] as String?;
+        _run.value = 1;
+        _pending =
+            _Pending(
+                result: result,
+                target: _settleTarget!,
+                hidden: _settleHidden,
+                questions: [],
+              )
+              ..outKind = kind
+              ..rbi = raw['rbi'] as int?;
+      } else if (questions.isEmpty) {
         _failedPlay = LoggedPlay(
           result: result,
           outKind: kind,
@@ -222,6 +260,7 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
   @override
   void dispose() {
     _settle?.cancel();
+    _run.dispose();
     super.dispose();
   }
 
@@ -310,33 +349,37 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
       ),
     };
 
-    final questions = <_Question>[
-      if (zone == DiamondZone.out) _Question.how,
-      if (zone == DiamondZone.first) _Question.reach,
-      if (personal && zone != DiamondZone.out) _Question.rbi,
-    ];
-
     unawaited(HapticFeedback.mediumImpact());
     setState(() {
+      _review = true;
+      _destination = zone;
+      _location = null;
+      _quality = null;
+      _error = null;
       _settleTarget = target;
-      _settleHidden = hidden;
-      if (questions.isEmpty) {
-        _pending = null;
-      } else {
-        _pending = _Pending(
-          result: result,
-          target: target,
-          hidden: hidden,
-          questions: questions,
-        );
-      }
+      _settleHidden = false;
+      _pending = _Pending(
+        result: result,
+        target: target,
+        hidden: hidden,
+        questions: [],
+      )..rbi = personal ? (result == PaResult.homer ? 1 : 0) : null;
     });
-
-    if (questions.isEmpty) {
-      _file(LoggedPlay(result: result));
+    widget.onPendingChanged(true);
+    unawaited(
+      _persistDraft().catchError((Object _) {
+        if (mounted) {
+          setState(
+            () => _error =
+                'Draft not saved. Keep this screen open and try Save play.',
+          );
+        }
+      }),
+    );
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _run.value = 1;
     } else {
-      widget.onPendingChanged(true);
-      unawaited(_persistDraft().catchError((Object _) {}));
+      _run.forward(from: 0);
     }
   }
 
@@ -347,7 +390,11 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
     int? rbi,
   }) {
     final pending = _pending;
-    if (pending == null || pending.asking != question) return;
+    if (pending == null ||
+        pending.questions.isEmpty ||
+        pending.asking != question) {
+      return;
+    }
     unawaited(HapticFeedback.selectionClick());
     switch (question) {
       case _Question.how:
@@ -360,7 +407,16 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
     }
     pending.questions.removeAt(0);
     if (pending.questions.isNotEmpty) {
-      unawaited(_persistDraft().catchError((Object _) {}));
+      unawaited(
+        _persistDraft().catchError((Object _) {
+          if (mounted) {
+            setState(
+              () => _error =
+                  'Draft not saved. Keep this screen open and try Save play.',
+            );
+          }
+        }),
+      );
       setState(() {});
       return;
     }
@@ -369,20 +425,50 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
       outKind: pending.outKind,
       rbi: pending.rbi,
     );
-    setState(() => _pending = null);
-    widget.onPendingChanged(false);
-    _file(play);
+    setState(() {
+      _review = true;
+      _destination = switch (play.result) {
+        PaResult.double => DiamondZone.second,
+        PaResult.triple => DiamondZone.third,
+        PaResult.homer => DiamondZone.homeRun,
+        PaResult.out || PaResult.strikeout => DiamondZone.out,
+        _ => DiamondZone.first,
+      };
+      _run.value = 1;
+    });
+    unawaited(
+      _persistDraft().catchError((Object _) {
+        if (mounted) {
+          setState(
+            () => _error =
+                'Draft not saved. Keep this screen open and try Save play.',
+          );
+        }
+      }),
+    );
   }
 
-  void _cancel() {
-    if (_pending == null) return;
-    setState(() {
-      _pending = null;
-      _settleTarget = null;
-      _settleHidden = false;
-    });
-    widget.onPendingChanged(false);
-    unawaited(_persistDraft(clear: true).catchError((Object _) {}));
+  Future<void> _cancel() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await _persistDraft(clear: true);
+      if (!mounted) return;
+      setState(() {
+        _pending = null;
+        _review = false;
+        _location = null;
+        _failedPlay = null;
+        _settleTarget = null;
+        _settleHidden = false;
+        _error = null;
+      });
+      widget.onPendingChanged(false);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Could not cancel. Try again.');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<void> _sendRunner(String id) async {
@@ -417,6 +503,9 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
       await widget.onCommit(play);
       if (!mounted) return;
       setState(() {
+        _pending = null;
+        _review = false;
+        _location = null;
         _justCommitted = true;
         _saving = false;
       });
@@ -439,7 +528,11 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _failedPlay = play;
+        if (_review) {
+          _error = 'Play not saved. Try Save play again.';
+        } else {
+          _failedPlay = play;
+        }
       });
     }
   }
@@ -456,7 +549,31 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
     final tapsAllowed =
         widget.enabled && !dragging && !_locked && _settleTarget == null;
 
-    final chipPos = _drag ?? _settleTarget ?? g.home;
+    final path = [g.home, g.first, g.second, g.third, g.home];
+    final legs = switch (_destination) {
+      DiamondZone.first => 1,
+      DiamondZone.second => 2,
+      DiamondZone.third => 3,
+      DiamondZone.homeRun => 4,
+      _ => 0,
+    };
+    final progress = _run.value * legs;
+    final leg = progress.floor().clamp(0, legs > 0 ? legs - 1 : 0);
+    final running = legs == 0
+        ? g.home
+        : Offset.lerp(path[leg], path[leg + 1], progress - leg)!;
+    final chipPos = _review ? running : (_drag ?? _settleTarget ?? g.home);
+    if (_review && _run.isCompleted) {
+      return TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 180),
+        builder: (context, value, child) =>
+            Opacity(opacity: value, child: child),
+        child: _reviewPanel(context),
+      );
+    }
     final chipLabel = state.personal ? 'You' : (batter?.firstName ?? '');
 
     return Column(
@@ -598,7 +715,10 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
                     ),
                 AnimatedPositioned(
                   key: const Key('batter-chip'),
-                  duration: dragging || MediaQuery.disableAnimationsOf(context)
+                  duration:
+                      _review ||
+                          dragging ||
+                          MediaQuery.disableAnimationsOf(context)
                       ? Duration.zero
                       : const Duration(milliseconds: 420),
                   curve: Curves.easeOutCubic,
@@ -664,6 +784,12 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
     }
 
     final pending = _pending;
+    if (_review) {
+      return Text(
+        'Hitter → $_destinationLabel',
+        style: context.text.titleMedium?.copyWith(color: field.on),
+      );
+    }
     if (pending != null) {
       return switch (pending.asking) {
         _Question.how => _PillRow(
@@ -745,6 +871,329 @@ class _OneCardDiamondState extends State<OneCardDiamond> {
       );
     }
     return const SizedBox.shrink();
+  }
+
+  String get _destinationLabel => switch (_destination) {
+    DiamondZone.first => '1st base',
+    DiamondZone.second => '2nd base',
+    DiamondZone.third => '3rd base',
+    DiamondZone.homeRun => 'Home',
+    _ => 'Out',
+  };
+
+  void _edit(VoidCallback change) {
+    if (_saving) return;
+    setState(() {
+      change();
+      _error = null;
+    });
+    unawaited(
+      _persistDraft().catchError((Object _) {
+        if (mounted) {
+          setState(
+            () => _error =
+                'Draft not saved. Keep this screen open and try Save play.',
+          );
+        }
+      }),
+    );
+  }
+
+  Widget _reviewPanel(BuildContext context) {
+    final p = _pending!;
+    final field = context.colors.field;
+    final batted = p.result != PaResult.walk && p.result != PaResult.strikeout;
+    final needsKind = p.result == PaResult.out;
+    return SizedBox(
+      height: widget.reviewHeight,
+      child: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Hitter → $_destinationLabel',
+                    style: context.text.titleMedium?.copyWith(
+                      color: field.accent,
+                    ),
+                  ),
+                  if (widget.trackLocation && batted) ...[
+                    Text(
+                      'Where did the ball go?',
+                      style: context.text.titleLarge?.copyWith(color: field.on),
+                    ),
+                    ContactField(
+                      fieldMode: true,
+                      location: _location,
+                      onLocation: _saving
+                          ? null
+                          : (v) => _edit(
+                              () => _location = v.withDetails(
+                                flight: _location?.flight,
+                                bats: _location?.bats,
+                              ),
+                            ),
+                    ),
+                    Text(
+                      _location?.label ?? 'Location unknown · optional',
+                      style: context.text.bodySmall?.copyWith(
+                        color: field.muted,
+                      ),
+                    ),
+                    if (_location != null)
+                      TextButton(
+                        onPressed: _saving
+                            ? null
+                            : () => _edit(() => _location = null),
+                        child: const Text('Clear location'),
+                      ),
+                  ],
+                  const SizedBox(height: 8),
+                  Text(
+                    'Result',
+                    style: context.text.labelLarge?.copyWith(color: field.on),
+                  ),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      for (final result in [
+                        PaResult.single,
+                        PaResult.double,
+                        PaResult.triple,
+                        PaResult.homer,
+                        PaResult.walk,
+                        PaResult.out,
+                        PaResult.strikeout,
+                        PaResult.reachOnError,
+                        PaResult.fieldersChoice,
+                      ])
+                        ChoiceChip(
+                          checkmarkColor: field.accent,
+                          labelStyle: context.text.labelLarge?.copyWith(
+                            color: field.on,
+                          ),
+                          key: Key('result-${result.wire}'),
+                          label: Text(result.label),
+                          selected: p.result == result,
+                          onSelected: _saving
+                              ? null
+                              : (_) => _edit(() {
+                                  p.result = result;
+                                  if (result != PaResult.out) p.outKind = null;
+                                  if (result == PaResult.walk ||
+                                      result == PaResult.strikeout) {
+                                    _location = null;
+                                  }
+                                  if (widget.state.personal &&
+                                      result == PaResult.homer &&
+                                      (p.rbi ?? 0) < 1) {
+                                    p.rbi = 1;
+                                  }
+                                }),
+                        ),
+                    ],
+                  ),
+                  if (needsKind)
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        for (final kind in OutKind.values)
+                          ChoiceChip(
+                            checkmarkColor: field.accent,
+                            labelStyle: context.text.labelLarge?.copyWith(
+                              color: field.on,
+                            ),
+                            key: Key('how-${kind.wire}'),
+                            label: Text(kind.label),
+                            selected: p.outKind == kind,
+                            onSelected: _saving
+                                ? null
+                                : (_) => _edit(() => p.outKind = kind),
+                          ),
+                      ],
+                    ),
+                  if (widget.state.personal) ...[
+                    Text(
+                      'RBI',
+                      style: context.text.labelLarge?.copyWith(color: field.on),
+                    ),
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        for (var n = _minRbi(p.result); n <= 4; n++)
+                          ChoiceChip(
+                            checkmarkColor: field.accent,
+                            labelStyle: context.text.labelLarge?.copyWith(
+                              color: field.on,
+                            ),
+                            key: Key('rbi-$n'),
+                            label: Text('$n'),
+                            selected: p.rbi == n,
+                            onSelected: _saving
+                                ? null
+                                : (_) => _edit(() => p.rbi = n),
+                          ),
+                      ],
+                    ),
+                  ],
+                  if (widget.trackLocation && batted)
+                    ExpansionTile(
+                      title: const Text('Optional detail'),
+                      children: [
+                        Wrap(
+                          spacing: 6,
+                          children: [
+                            for (final region in ContactLocation.regions)
+                              ActionChip(
+                                label: Text(region),
+                                onPressed: _saving
+                                    ? null
+                                    : () => _edit(
+                                        () => _location = ContactLocation(
+                                          region: region,
+                                          flight: _location?.flight,
+                                          bats: _location?.bats,
+                                        ),
+                                      ),
+                              ),
+                          ],
+                        ),
+                        Wrap(
+                          spacing: 6,
+                          children: [
+                            for (final flight in ContactLocation.flights)
+                              ChoiceChip(
+                                checkmarkColor: field.accent,
+                                labelStyle: context.text.labelLarge?.copyWith(
+                                  color: field.on,
+                                ),
+                                label: Text(flight),
+                                selected: _location?.flight == flight,
+                                onSelected: _saving
+                                    ? null
+                                    : (selected) => _edit(
+                                        () => _location = ContactLocation(
+                                          x: _location?.x,
+                                          y: _location?.y,
+                                          region: _location?.region,
+                                          flight: selected ? flight : null,
+                                          bats: _location?.bats,
+                                        ),
+                                      ),
+                              ),
+                          ],
+                        ),
+                        if (widget.state.personal ||
+                            widget.state.settings.modules.contact)
+                          Wrap(
+                            spacing: 6,
+                            children: [
+                              for (final quality in ['weak', 'medium', 'hard'])
+                                ChoiceChip(
+                                  checkmarkColor: field.accent,
+                                  labelStyle: context.text.labelLarge?.copyWith(
+                                    color: field.on,
+                                  ),
+                                  label: Text(quality),
+                                  selected: _quality == quality,
+                                  onSelected: _saving
+                                      ? null
+                                      : (selected) => _edit(
+                                          () => _quality = selected
+                                              ? quality
+                                              : null,
+                                        ),
+                                ),
+                            ],
+                          ),
+                        Text(
+                          'Batting side',
+                          style: context.text.labelLarge?.copyWith(
+                            color: field.on,
+                          ),
+                        ),
+                        Wrap(
+                          spacing: 6,
+                          children: [
+                            for (final side in ['left', 'right'])
+                              ChoiceChip(
+                                checkmarkColor: field.accent,
+                                labelStyle: context.text.labelLarge?.copyWith(
+                                  color: field.on,
+                                ),
+                                label: Text(side),
+                                selected:
+                                    (_location?.bats ??
+                                        widget.state.batter?.bats) ==
+                                    side,
+                                onSelected: _saving
+                                    ? null
+                                    : (_) => _edit(
+                                        () => _location =
+                                            (_location ??
+                                                    const ContactLocation())
+                                                .withDetails(bats: side),
+                                      ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  if (_error != null)
+                    Text(
+                      _error!,
+                      style: context.text.bodySmall?.copyWith(
+                        color: field.onOut,
+                      ),
+                    ),
+                  if (needsKind && p.outKind == null)
+                    Text(
+                      'Choose how the out was made',
+                      style: context.text.bodySmall?.copyWith(
+                        color: field.muted,
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FilledButton(
+                  key: const Key('save-play'),
+                  onPressed: _saving || (needsKind && p.outKind == null)
+                      ? null
+                      : () => _file(
+                          LoggedPlay(
+                            result: p.result,
+                            outKind: p.outKind,
+                            rbi: p.rbi,
+                            hitLocation: batted ? _location?.encode() : null,
+                            qualityOfContact: batted ? _quality : null,
+                          ),
+                        ),
+                  child: const Text('Save play'),
+                ),
+                TextButton(
+                  key: const Key('cancel-play'),
+                  onPressed: _saving ? null : _cancel,
+                  child: const Text('Cancel play'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   int _minRbi(PaResult result) => result == PaResult.homer ? 1 : 0;
