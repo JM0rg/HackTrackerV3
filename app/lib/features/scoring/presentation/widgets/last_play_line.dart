@@ -75,65 +75,72 @@ class LastPlayLine extends StatelessWidget {
           ? 'Their half is in the book'
           : 'First batter of the game';
       return SizedBox(
-        height: 30,
+        height: 44,
         child: Center(
           child: state.newestIsTheirHalf
               ? TextButton.icon(
                   onPressed: onUndo,
-                  icon: Icon(Icons.undo, size: 16, color: field.muted),
+                  icon: Icon(Icons.undo, size: 18, color: field.muted),
                   label: Text(text, style: muted),
                 )
               : Text(text, style: muted),
         ),
       );
     }
-
-    final isOut = pa.effective.recordsOut;
-    return SizedBox(
-      height: 30,
+    return Container(
+      height: 44,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           IconButton(
             key: const Key('undo'),
             onPressed: onUndo,
             tooltip: 'Undo',
-            iconSize: 18,
-            color: field.muted,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 30),
-            icon: const Icon(Icons.undo),
+            icon: const Icon(Icons.undo_rounded, size: 20),
+            color: field.on,
+            style: IconButton.styleFrom(backgroundColor: field.surfaceHigh),
           ),
-          Flexible(
+          const SizedBox(width: 10),
+          Expanded(
             child: InkWell(
               key: const Key('last-play'),
               onTap: onFix == null ? null : () => onFix!(pa),
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                child: Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: '${pa.effective.label}  ',
-                        style: muted?.copyWith(
-                          color: isOut ? field.onOut : field.accent,
-                          fontWeight: FontWeight.w700,
-                        ),
+              borderRadius: BorderRadius.circular(12),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          (pa.effective.recordsOut ? field.onOut : field.accent)
+                              .withValues(alpha: .12),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Text(
+                      pa.effective.label,
+                      style: context.text.labelMedium?.copyWith(
+                        color: pa.effective.recordsOut
+                            ? field.onOut
+                            : field.accent,
+                        fontWeight: FontWeight.w700,
                       ),
-                      TextSpan(
-                        text: describe(state, pa),
-                        style: muted?.copyWith(
-                          decoration: TextDecoration.underline,
-                          decorationStyle: TextDecorationStyle.dotted,
-                          decorationColor: field.muted,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      describe(state, pa),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: muted,
+                    ),
+                  ),
+                  if (onFix != null)
+                    Icon(Icons.edit_outlined, color: field.muted, size: 16),
+                ],
               ),
             ),
           ),

@@ -88,7 +88,10 @@ class LiveCard extends StatelessWidget {
                     children: [
                       Flexible(
                         child: Text(
-                          line?.summary ?? 'No at-bats yet',
+                          line?.summary ??
+                              (game.kind == 'team'
+                                  ? 'Resume game'
+                                  : 'No at-bats yet'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: context.text.headlineLarge?.copyWith(
@@ -100,7 +103,9 @@ class LiveCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         Text(
                           '$half ${game.currentInning}',
-                          style: context.text.titleSmall?.copyWith(color: colors.muted),
+                          style: context.text.titleSmall?.copyWith(
+                            color: colors.muted,
+                          ),
                         ),
                       ],
                     ],

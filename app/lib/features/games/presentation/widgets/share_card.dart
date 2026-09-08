@@ -50,7 +50,10 @@ class ShareCard extends StatelessWidget {
               bottom: -40,
               child: Opacity(
                 opacity: 0.16,
-                child: CustomPaint(size: const Size(200, 200), painter: _DiamondPainter(field.accent)),
+                child: CustomPaint(
+                  size: const Size(200, 200),
+                  painter: _DiamondPainter(field.accent),
+                ),
               ),
             ),
             Column(
@@ -87,11 +90,16 @@ class ShareCard extends StatelessWidget {
                     children: [
                       for (final t in tags)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                              color: t == 'HR' ? field.accent : field.lineStrong,
+                              color: t == 'HR'
+                                  ? field.accent
+                                  : field.lineStrong,
                               width: 1.5,
                             ),
                           ),
@@ -107,7 +115,10 @@ class ShareCard extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 12),
-                Text(line, style: context.text.bodyMedium?.copyWith(color: field.muted)),
+                Text(
+                  line,
+                  style: context.text.bodyMedium?.copyWith(color: field.muted),
+                ),
                 const Spacer(),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -116,8 +127,18 @@ class ShareCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(who, style: context.text.labelLarge?.copyWith(color: field.on)),
-                          Text(sub, style: context.text.bodySmall?.copyWith(color: field.muted)),
+                          Text(
+                            who,
+                            style: context.text.labelLarge?.copyWith(
+                              color: field.on,
+                            ),
+                          ),
+                          Text(
+                            sub,
+                            style: context.text.bodySmall?.copyWith(
+                              color: field.muted,
+                            ),
+                          ),
                         ],
                       ),
                     ),

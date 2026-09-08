@@ -22,13 +22,19 @@ class _PickerSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final spacing = context.themeSpacing;
-    final teams = ref.watch(personalTeamsStreamProvider).valueOrNull ??
+    final teams =
+        ref.watch(personalTeamsStreamProvider).valueOrNull ??
         const <PersonalTeam>[];
 
     return SafeArea(
       top: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(spacing.md, spacing.sm, spacing.md, spacing.md),
+        padding: EdgeInsets.fromLTRB(
+          spacing.md,
+          spacing.sm,
+          spacing.md,
+          spacing.md,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -56,7 +62,10 @@ class _PickerSheet extends ConsumerWidget {
                           padding: EdgeInsets.symmetric(horizontal: spacing.md),
                           child: const Align(
                             alignment: Alignment.centerRight,
-                            child: Icon(Icons.delete_outline, color: Colors.white),
+                            child: Icon(
+                              Icons.delete_outline,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
@@ -65,8 +74,9 @@ class _PickerSheet extends ConsumerWidget {
                         title: 'Forget ${team.name}?',
                         body: 'Games already tagged keep the name.',
                       ),
-                      onDismissed: (_) =>
-                          ref.read(meRepositoryProvider).deletePersonalTeam(team.id),
+                      onDismissed: (_) => ref
+                          .read(meRepositoryProvider)
+                          .deletePersonalTeam(team.id),
                       child: ListTile(
                         key: Key('pick-${team.id}'),
                         contentPadding: EdgeInsets.zero,
@@ -85,7 +95,9 @@ class _PickerSheet extends ConsumerWidget {
               leading: Icon(Icons.add, color: context.colors.accent),
               title: Text(
                 'Add new team',
-                style: context.text.titleSmall?.copyWith(color: context.colors.accent),
+                style: context.text.titleSmall?.copyWith(
+                  color: context.colors.accent,
+                ),
               ),
               onTap: () async {
                 final created = await _showAddTeam(context);
@@ -129,8 +141,9 @@ class _AddTeamSheetState extends ConsumerState<_AddTeamSheet> {
   }
 
   Future<void> _save() async {
-    final created =
-        await ref.read(meRepositoryProvider).createPersonalTeam(_name.text);
+    final created = await ref
+        .read(meRepositoryProvider)
+        .createPersonalTeam(_name.text);
     if (created != null && mounted) Navigator.pop(context, created);
   }
 

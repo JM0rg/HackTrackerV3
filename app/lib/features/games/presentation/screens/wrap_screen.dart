@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hacktracker/core/di/repository_providers.dart';
 import 'package:hacktracker/core/theme/theme_context_extensions.dart';
 import 'package:hacktracker/core/widgets/surfaces.dart';
+import 'package:hacktracker/core/widgets/scorebook_surface.dart';
 import 'package:hacktracker/features/games/presentation/screens/box_score_screen.dart';
 import 'package:hacktracker/features/games/presentation/widgets/line_score.dart';
 import 'package:hacktracker/features/games/presentation/widgets/share_card.dart';
@@ -30,7 +31,8 @@ class WrapScreen extends ConsumerStatefulWidget {
 class _WrapScreenState extends ConsumerState<WrapScreen> {
   final _cardKey = GlobalKey();
 
-  void _home(FieldModeState state) => context.go(state.personal ? '/' : '/team');
+  void _home(FieldModeState state) =>
+      context.go(state.personal ? '/' : '/team');
 
   @override
   Widget build(BuildContext context) {
@@ -46,9 +48,12 @@ class _WrapScreenState extends ConsumerState<WrapScreen> {
     final game = state.game;
     final replay = state.replay;
     final innings =
-        ref.watch(gameInningsStreamProvider(widget.gameId)).valueOrNull ?? const [];
+        ref.watch(gameInningsStreamProvider(widget.gameId)).valueOrNull ??
+        const [];
     final opponent = game.opponentName?.trim();
-    final when = game.startsAt == null ? '' : DateFormat.MMMd().format(game.startsAt!);
+    final when = game.startsAt == null
+        ? ''
+        : DateFormat.MMMd().format(game.startsAt!);
 
     final me = state.batter;
     final line = me == null ? null : state.lineFor(me.id);
@@ -87,7 +92,10 @@ class _WrapScreenState extends ConsumerState<WrapScreen> {
                           }
                         },
                         itemBuilder: (_) => const [
-                          PopupMenuItem(value: 'reopen', child: Text('Reopen game')),
+                          PopupMenuItem(
+                            value: 'reopen',
+                            child: Text('Reopen game'),
+                          ),
                           PopupMenuItem(value: 'box', child: Text('Box score')),
                         ],
                       ),
@@ -106,54 +114,73 @@ class _WrapScreenState extends ConsumerState<WrapScreen> {
               child: ListView(
                 padding: EdgeInsets.fromLTRB(s.md, s.sm, s.md, s.xl),
                 children: [
-                  Text(
-                    [
-                      if (game.playedForName != null) game.playedForName!,
-                      if (opponent != null && opponent.isNotEmpty) 'vs $opponent',
-                      when,
-                    ].where((t) => t.isNotEmpty).join(' · '),
-                    style: context.text.bodyMedium?.copyWith(color: colors.muted),
-                  ),
-                  SizedBox(height: s.xs),
-                  if (personalHero) ...[
-                    Text(
-                      '${line.hits} for ${line.atBats}',
-                      key: const Key('wrap-line'),
-                      style: context.text.displayLarge
-                          ?.copyWith(fontFeatures: tabularFigures),
-                    ),
-                    if (line.results.isNotEmpty) ...[
-                      SizedBox(height: s.sm + 4),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [for (final r in line.results) HitTag(label: r)],
-                      ),
-                    ],
-                    SizedBox(height: s.sm + 4),
-                    Text(
-                      [
-                        '$rbi RBI',
-                        '$runs run${runs == 1 ? '' : 's'}',
-                        '${replay.plateAppearanceCount} plate appearance${replay.plateAppearanceCount == 1 ? '' : 's'}',
-                      ].join(' · '),
-                      style: context.text.bodyMedium?.copyWith(color: colors.muted),
-                    ),
-                  ] else
-                    Text.rich(
-                      TextSpan(
-                        style: context.text.displayLarge
-                            ?.copyWith(fontFeatures: tabularFigures),
-                        children: [
-                          TextSpan(
-                            text: '${replay.ourRuns}',
-                            style: TextStyle(color: colors.accent),
+                  ScorebookSurface(
+                    accent: true,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const ScorebookLabel('Final / Scorebook', accent: true),
+                        const SizedBox(height: 18),
+                        Text(
+                          [
+                            if (game.playedForName != null) game.playedForName!,
+                            if (opponent != null && opponent.isNotEmpty)
+                              'vs $opponent',
+                            when,
+                          ].where((t) => t.isNotEmpty).join(' · '),
+                          style: context.text.bodyMedium?.copyWith(
+                            color: colors.muted,
                           ),
-                          const TextSpan(text: ' – '),
-                          TextSpan(text: '${replay.theirRuns}'),
-                        ],
-                      ),
+                        ),
+                        SizedBox(height: s.xs),
+                        if (personalHero) ...[
+                          Text(
+                            '${line.hits} for ${line.atBats}',
+                            key: const Key('wrap-line'),
+                            style: context.text.displayLarge?.copyWith(
+                              fontFeatures: tabularFigures,
+                            ),
+                          ),
+                          if (line.results.isNotEmpty) ...[
+                            SizedBox(height: s.sm + 4),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                for (final r in line.results) HitTag(label: r),
+                              ],
+                            ),
+                          ],
+                          SizedBox(height: s.sm + 4),
+                          Text(
+                            [
+                              '$rbi RBI',
+                              '$runs run${runs == 1 ? '' : 's'}',
+                              '${replay.plateAppearanceCount} plate appearance${replay.plateAppearanceCount == 1 ? '' : 's'}',
+                            ].join(' · '),
+                            style: context.text.bodyMedium?.copyWith(
+                              color: colors.muted,
+                            ),
+                          ),
+                        ] else
+                          Text.rich(
+                            TextSpan(
+                              style: context.text.displayLarge?.copyWith(
+                                fontFeatures: tabularFigures,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: '${replay.ourRuns}',
+                                  style: TextStyle(color: colors.accent),
+                                ),
+                                const TextSpan(text: ' – '),
+                                TextSpan(text: '${replay.theirRuns}'),
+                              ],
+                            ),
+                          ),
+                      ],
                     ),
+                  ),
                   if (state.tracksScore && personalHero) ...[
                     SizedBox(height: s.lg),
                     Surface(
@@ -167,8 +194,9 @@ class _WrapScreenState extends ConsumerState<WrapScreen> {
                             children: [
                               Text.rich(
                                 TextSpan(
-                                  style: context.text.headlineLarge
-                                      ?.copyWith(fontFeatures: tabularFigures),
+                                  style: context.text.headlineLarge?.copyWith(
+                                    fontFeatures: tabularFigures,
+                                  ),
                                   children: [
                                     TextSpan(
                                       text: '${replay.ourRuns}',
@@ -191,7 +219,9 @@ class _WrapScreenState extends ConsumerState<WrapScreen> {
                     ),
                   ] else if (state.tracksScore && innings.isNotEmpty) ...[
                     SizedBox(height: s.lg),
-                    Surface(child: LineScore(innings: innings, game: game)),
+                    Surface(
+                      child: LineScore(innings: innings, game: game),
+                    ),
                   ],
                   if (!state.personal) ...[
                     SizedBox(height: s.lg),
@@ -199,7 +229,9 @@ class _WrapScreenState extends ConsumerState<WrapScreen> {
                   ],
                   if (replay.pas.isNotEmpty) ...[
                     SizedBox(height: s.lg),
-                    for (final pa in replay.pas.reversed.take(state.personal ? 12 : 8))
+                    for (final pa in replay.pas.reversed.take(
+                      state.personal ? 12 : 8,
+                    ))
                       _PlayRow(state: state, pa: pa),
                   ],
                   // Rendered off-screen so Share has something to capture.
@@ -211,7 +243,8 @@ class _WrapScreenState extends ConsumerState<WrapScreen> {
                           width: 320,
                           child: ShareCard(
                             eyebrow: [
-                              if (game.playedForName != null) game.playedForName!,
+                              if (game.playedForName != null)
+                                game.playedForName!,
                               if (opponent != null && opponent.isNotEmpty)
                                 'vs $opponent',
                             ].join(' · '),
@@ -220,7 +253,8 @@ class _WrapScreenState extends ConsumerState<WrapScreen> {
                             line: _shareLine(state, rbi, runs),
                             who: me?.firstName ?? 'You',
                             sub: [
-                              if (game.playedForName != null) game.playedForName!,
+                              if (game.playedForName != null)
+                                game.playedForName!,
                               when,
                             ].where((t) => t.isNotEmpty).join(' · '),
                           ),
@@ -242,7 +276,11 @@ class _WrapScreenState extends ConsumerState<WrapScreen> {
       '$rbi RBI',
       '$runs run${runs == 1 ? '' : 's'}',
       if (state.tracksScore)
-        '${r.ourRuns > r.theirRuns ? 'won' : r.ourRuns < r.theirRuns ? 'lost' : 'tied'} ${r.ourRuns}–${r.theirRuns}',
+        '${r.ourRuns > r.theirRuns
+            ? 'won'
+            : r.ourRuns < r.theirRuns
+            ? 'lost'
+            : 'tied'} ${r.ourRuns}–${r.theirRuns}',
     ].join(' · ');
   }
 
@@ -271,10 +309,13 @@ class _WrapScreenState extends ConsumerState<WrapScreen> {
       await shareBoundaryAsImage(_cardKey, text: text);
       return;
     }
-    final pas =
-        await ref.read(scoringRepositoryProvider).plateAppearances(widget.gameId);
-    final innings =
-        await ref.read(scoringRepositoryProvider).watchInnings(widget.gameId).first;
+    final pas = await ref
+        .read(scoringRepositoryProvider)
+        .plateAppearances(widget.gameId);
+    final innings = await ref
+        .read(scoringRepositoryProvider)
+        .watchInnings(widget.gameId)
+        .first;
     await SharePlus.instance.share(
       ShareParams(text: boxScoreText(pas, state.roster, innings, state.game)),
     );
@@ -315,7 +356,10 @@ class _PlayRow extends StatelessWidget {
                 ),
               ),
               if (state.tracksScore)
-                Text(_ordinal(pa.inning as int), style: context.text.labelSmall),
+                Text(
+                  _ordinal(pa.inning as int),
+                  style: context.text.labelSmall,
+                ),
             ],
           ),
         ),
@@ -361,14 +405,16 @@ class _BattingLines extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      state.playerById(entry.value.playerId)?.firstName ?? 'Unknown',
+                      state.playerById(entry.value.playerId)?.firstName ??
+                          'Unknown',
                       style: context.text.bodyMedium,
                     ),
                   ),
                   Text(
                     '${entry.value.hits}-${entry.value.atBats}',
-                    style: context.text.titleSmall
-                        ?.copyWith(fontFeatures: tabularFigures),
+                    style: context.text.titleSmall?.copyWith(
+                      fontFeatures: tabularFigures,
+                    ),
                   ),
                   SizedBox(width: context.themeSpacing.sm),
                   SizedBox(

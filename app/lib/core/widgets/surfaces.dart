@@ -29,7 +29,9 @@ class Surface extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: gradientFrom == null ? (high ? colors.surfaceHigh : colors.surface) : null,
+        color: gradientFrom == null
+            ? (high ? colors.surfaceHigh : colors.surface)
+            : null,
         gradient: gradientFrom == null
             ? null
             : RadialGradient(
@@ -83,7 +85,12 @@ class SettingsGroup extends StatelessWidget {
         child: Column(
           children: [
             for (var i = 0; i < children.length; i++) ...[
-              if (i > 0) Divider(height: 1, thickness: 1, color: colors.text.withValues(alpha: 0.06)),
+              if (i > 0)
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: colors.text.withValues(alpha: 0.06),
+                ),
               children[i],
             ],
           ],
@@ -147,7 +154,10 @@ class SettingsRow extends StatelessWidget {
                 ),
               ),
             if (trailing != null)
-              Padding(padding: const EdgeInsets.only(left: 8), child: trailing!),
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: trailing!,
+              ),
             if (onTap != null && trailing == null)
               Padding(
                 padding: const EdgeInsets.only(left: 2),
@@ -199,7 +209,10 @@ class Hairline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(height: 1, color: context.colors.text.withValues(alpha: 0.06));
+    return Container(
+      height: 1,
+      color: context.colors.text.withValues(alpha: 0.06),
+    );
   }
 }
 

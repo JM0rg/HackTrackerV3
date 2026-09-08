@@ -102,252 +102,291 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
   String get gameId => widget.gameId;
 
   static const _topRow = 48.0;
-  static const _hero = 122.0;
-  static const _card = 96.0;
+  static const _hero = 164.0;
+  static const _card = 110.0;
 
   /// A personal game with no score gives the card the hero's room.
   static const _cardHero = 168.0;
-  static const _lastLine = 30.0;
+  static const _lastLine = 44.0;
   static const _askRow = 40.0;
-  static const _nextUp = 26.0;
+  static const _nextUp = 44.0;
 
   @override
   Widget build(BuildContext context) {
     final spacing = context.themeSpacing;
     final repo = ref.read(scoringRepositoryProvider);
     final theirs = state.tracksScore && !state.replay.weBat;
-    final heroHeight = state.tracksScore ? _hero : 0.0;
-    final cardHeight = state.tracksScore ? _card : _cardHero;
+    final textScale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0);
+    final heroHeight = state.tracksScore ? _hero * textScale : 0.0;
+    final cardHeight = (state.tracksScore ? _card : _cardHero) * textScale;
     // Only a personal game keeping score ends its own half by hand.
     final byHand = state.personal && state.tracksScore && state.replay.weBat;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // The diamond takes what the fixed rows leave, within reason.
+        // Reserve space for retry feedback; large text scrolls instead of
+        // compressing the scoring controls.
+        final contentHeight = math.max(constraints.maxHeight, 828 * textScale);
         final spare =
-            constraints.maxHeight -
+            contentHeight -
             _topRow -
             heroHeight -
             cardHeight -
             _lastLine -
             _askRow -
             _nextUp -
-            spacing.md * 2;
+            spacing.md * 2 -
+            64 - // Retry row and the field panel's insets.
+            (state.hasLineup ? 0 : 48);
         final byHeight = spare * 280 / 240;
         final byWidth = constraints.maxWidth - spacing.md * 2;
         final width = math.min(byHeight, byWidth).clamp(190.0, 360.0);
         final geometry = FieldGeometry(width);
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              height: _topRow,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    key: const Key('field-close'),
-                    onPressed: _leave,
-                    icon: const Icon(Icons.close),
-                    color: context.colors.field.muted,
-                    tooltip: 'Back to the tab, game stays live',
-                  ),
-                  if (!state.personal && !state.isFinal)
-                    TextButton.icon(
-                      key: const Key('field-handoff'),
-                      onPressed: _awaitingAnswer
-                          ? null
-                          : () => setState(() => _handoff = !_handoff),
-                      icon: Icon(
-                        _handoff ? Icons.check : Icons.swap_horiz,
-                        size: 20,
-                      ),
-                      label: Text(_handoff ? 'Done' : 'Handoff'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: context.colors.field.on,
-                      ),
-                    ),
-                  if (!_handoff)
-                    IconButton(
-                      onPressed: () => _openMenu(context, ref),
-                      icon: const Icon(Icons.more_horiz),
-                      color: context.colors.field.muted,
-                      tooltip: 'Game menu',
-                    ),
-                ],
-              ),
-            ),
-            if (!state.isFinal && state.tracksScore)
-              GestureDetector(
-                key: const Key('hero-pull'),
-                behavior: HitTestBehavior.translucent,
-                onVerticalDragUpdate: (d) => setState(
-                  () => _pull = (_pull + d.delta.dy).clamp(0.0, 160.0),
-                ),
-                onVerticalDragEnd: (_) => _releasePull(repo),
-                onVerticalDragCancel: () => setState(() => _pull = 0),
-                child: SizedBox(
-                  height: _hero,
-                  child: Stack(
-                    alignment: Alignment.topCenter,
+        return SingleChildScrollView(
+          child: SizedBox(
+            height: contentHeight,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  height: _topRow,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      AnimatedContainer(
-                        duration: _pull == 0
-                            ? const Duration(milliseconds: 180)
-                            : Duration.zero,
-                        transform: Matrix4.translationValues(
-                          0,
-                          _pull * 0.35,
-                          0,
+                      IconButton(
+                        key: const Key('field-close'),
+                        onPressed: _leave,
+                        icon: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 19,
                         ),
-                        child: Center(
-                          child: ScoreHero(
-                            state: state,
-                            onTap: _handoff
-                                ? null
-                                : () => showLogSheet(context, gameId: gameId),
-                            onRun: byHand && !_awaitingAnswer
-                                ? (delta) => repo.bumpOurHalfRuns(
-                                    game: state.game,
-                                    delta: delta,
-                                  )
-                                : null,
-                            onEndHalf: byHand && !_awaitingAnswer
-                                ? () => repo.endOurHalf(state.game)
-                                : null,
-                          ),
-                        ),
+                        color: context.colors.field.muted,
+                        tooltip: 'Back to the tab, game stays live',
                       ),
-                      if (_pull > 12)
-                        Positioned(
-                          top: 2,
-                          child: AnimatedOpacity(
-                            duration: const Duration(milliseconds: 120),
-                            opacity: (_pull / _endThreshold).clamp(0.0, 1.0),
-                            child: Text(
-                              _pull >= _endThreshold
-                                  ? 'Release to end the game'
-                                  : 'Pull to end the game',
-                              key: const Key('pull-hint'),
-                              style: context.text.labelSmall?.copyWith(
-                                color: _pull >= _endThreshold
-                                    ? context.colors.field.accent
-                                    : context.colors.field.muted,
-                                letterSpacing: 1.2,
-                              ),
-                            ),
+                      if (!state.personal && !state.isFinal)
+                        TextButton.icon(
+                          key: const Key('field-handoff'),
+                          onPressed: _awaitingAnswer
+                              ? null
+                              : () => setState(() => _handoff = !_handoff),
+                          icon: Icon(
+                            _handoff ? Icons.check : Icons.swap_horiz,
+                            size: 20,
                           ),
+                          label: Text(_handoff ? 'Done' : 'Handoff'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: context.colors.field.on,
+                          ),
+                        ),
+                      if (!_handoff)
+                        IconButton(
+                          onPressed: () => _openMenu(context, ref),
+                          icon: const Icon(Icons.more_horiz),
+                          color: context.colors.field.muted,
+                          tooltip: 'Game menu',
                         ),
                     ],
                   ),
                 ),
-              ),
-            if (state.isFinal)
-              Expanded(
-                child: FinalCard(
-                  state: state,
-                  onReopen: () => repo.reopenGame(state.game),
-                  onBoxScore: () => context.push('/games/$gameId/box'),
-                ),
-              )
-            else if (theirs)
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    spacing.sm,
-                    0,
-                    spacing.sm,
-                    spacing.sm,
-                  ),
-                  child: TheirHalfCard(
-                    state: state,
-                    onRun: (delta) =>
-                        repo.bumpTheirHalfRuns(game: state.game, delta: delta),
-                    onEnd: () => repo.endTheirHalf(state.game),
-                  ),
-                ),
-              )
-            else ...[
-              BatterCard(
-                state: state,
-                height: cardHeight,
-                onUndo: state.hasLog && !_awaitingAnswer
-                    ? () => repo.undoLast(state.game)
-                    : null,
-                onNext: state.hasLineup && !state.personal && !_awaitingAnswer
-                    ? () => _jump(repo, 1)
-                    : null,
-                onPrevious:
-                    state.hasLineup && !state.personal && !_awaitingAnswer
-                    ? () => _jump(repo, -1)
-                    : null,
-              ),
-              // The diamond floats low, where a thumb lives; spare height goes
-              // above it two to one. The last play sits right against it:
-              // history next to the next action.
-              const Spacer(flex: 2),
-              AnimatedOpacity(
-                duration: const Duration(milliseconds: 150),
-                opacity: _awaitingAnswer ? 0.35 : 1,
-                child: LastPlayLine(
-                  state: state,
-                  onUndo: state.hasLog && !_awaitingAnswer
-                      ? () => repo.undoLast(state.game)
-                      : null,
-                  onFix: _awaitingAnswer || _handoff
-                      ? null
-                      : (pa) => showFixSheet(
-                          context,
-                          gameId: gameId,
-                          paId: pa.paId,
-                        ),
-                ),
-              ),
-              SizedBox(height: spacing.xs),
-              Center(
-                child: OneCardDiamond(
-                  state: state,
-                  geometry: geometry,
-                  enabled: state.hasLineup,
-                  showHint: state.replay.pas.length < 3,
-                  onCommit: (play) => _record(repo, play),
-                  onDraftChanged: (draft) => repo.saveDraft(gameId, draft),
-                  onWave: (playerId) => _wave(repo, playerId),
-                  onPendingChanged: (pending) {
-                    if (mounted) setState(() => _awaitingAnswer = pending);
-                  },
-                ),
-              ),
-              if (!state.hasLineup)
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: spacing.md),
-                  child: FilledButton(
-                    onPressed: () => context.push('/games/$gameId/lineup'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: context.colors.field.surfaceHigh,
-                      foregroundColor: context.colors.field.on,
-                      minimumSize: const Size.fromHeight(44),
+                if (!state.isFinal && state.tracksScore)
+                  GestureDetector(
+                    key: const Key('hero-pull'),
+                    behavior: HitTestBehavior.translucent,
+                    onVerticalDragUpdate: (d) => setState(
+                      () => _pull = (_pull + d.delta.dy).clamp(0.0, 160.0),
                     ),
-                    child: const Text('Pick a batting order to start'),
+                    onVerticalDragEnd: (_) => _releasePull(repo),
+                    onVerticalDragCancel: () => setState(() => _pull = 0),
+                    child: SizedBox(
+                      height: heroHeight,
+                      child: Stack(
+                        alignment: Alignment.topCenter,
+                        children: [
+                          AnimatedContainer(
+                            duration: _pull == 0
+                                ? const Duration(milliseconds: 180)
+                                : Duration.zero,
+                            transform: Matrix4.translationValues(
+                              0,
+                              _pull * 0.35,
+                              0,
+                            ),
+                            child: Center(
+                              child: ScoreHero(
+                                state: state,
+                                onTap: _handoff
+                                    ? null
+                                    : () =>
+                                          showLogSheet(context, gameId: gameId),
+                                onRun: byHand && !_awaitingAnswer
+                                    ? (delta) => repo.bumpOurHalfRuns(
+                                        game: state.game,
+                                        delta: delta,
+                                      )
+                                    : null,
+                                onEndHalf: byHand && !_awaitingAnswer
+                                    ? () => repo.endOurHalf(state.game)
+                                    : null,
+                              ),
+                            ),
+                          ),
+                          if (_pull > 12)
+                            Positioned(
+                              top: 2,
+                              child: AnimatedOpacity(
+                                duration: const Duration(milliseconds: 120),
+                                opacity: (_pull / _endThreshold).clamp(
+                                  0.0,
+                                  1.0,
+                                ),
+                                child: Text(
+                                  _pull >= _endThreshold
+                                      ? 'Release to end the game'
+                                      : 'Pull to end the game',
+                                  key: const Key('pull-hint'),
+                                  style: context.text.labelSmall?.copyWith(
+                                    color: _pull >= _endThreshold
+                                        ? context.colors.field.accent
+                                        : context.colors.field.muted,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              const Spacer(flex: 1),
-              SizedBox(
-                height: _nextUp,
-                child: _handoff
-                    ? Text(
-                        'Drag the hitter where they reached. Undo fixes the last play.',
-                        textAlign: TextAlign.center,
-                        style: context.text.labelSmall?.copyWith(
-                          color: context.colors.field.muted,
+                if (state.isFinal)
+                  Expanded(
+                    child: FinalCard(
+                      state: state,
+                      onReopen: () => repo.reopenGame(state.game),
+                      onBoxScore: () => context.push('/games/$gameId/box'),
+                    ),
+                  )
+                else if (theirs)
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        spacing.sm,
+                        0,
+                        spacing.sm,
+                        spacing.sm,
+                      ),
+                      child: TheirHalfCard(
+                        state: state,
+                        onRun: (delta) => repo.bumpTheirHalfRuns(
+                          game: state.game,
+                          delta: delta,
                         ),
-                      )
-                    : _NextUp(state: state),
-              ),
-              SizedBox(height: spacing.sm),
-            ],
-          ],
+                        onEnd: () => repo.endTheirHalf(state.game),
+                      ),
+                    ),
+                  )
+                else ...[
+                  BatterCard(
+                    state: state,
+                    height: cardHeight,
+                    onUndo: state.hasLog && !_awaitingAnswer
+                        ? () => repo.undoLast(state.game)
+                        : null,
+                    onNext:
+                        state.hasLineup && !state.personal && !_awaitingAnswer
+                        ? () => _jump(repo, 1)
+                        : null,
+                    onPrevious:
+                        state.hasLineup && !state.personal && !_awaitingAnswer
+                        ? () => _jump(repo, -1)
+                        : null,
+                  ),
+                  // Keep the last play beside the field so undo stays within reach.
+                  const SizedBox(height: 12),
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 150),
+                    opacity: _awaitingAnswer ? 0.35 : 1,
+                    child: LastPlayLine(
+                      state: state,
+                      onUndo: state.hasLog && !_awaitingAnswer
+                          ? () => repo.undoLast(state.game)
+                          : null,
+                      onFix: _awaitingAnswer || _handoff
+                          ? null
+                          : (pa) => showFixSheet(
+                              context,
+                              gameId: gameId,
+                              paId: pa.paId,
+                            ),
+                    ),
+                  ),
+                  SizedBox(height: spacing.xs),
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: context.colors.field.surface.withValues(
+                          alpha: .55,
+                        ),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: context.colors.field.border.withValues(
+                            alpha: .6,
+                          ),
+                        ),
+                      ),
+                      child: Center(
+                        child: OneCardDiamond(
+                          state: state,
+                          geometry: geometry,
+                          enabled: state.hasLineup,
+                          showHint: state.replay.pas.length < 3,
+                          onCommit: (play) => _record(repo, play),
+                          onDraftChanged: (draft) =>
+                              repo.saveDraft(gameId, draft),
+                          onWave: (playerId) => _wave(repo, playerId),
+                          onPendingChanged: (pending) {
+                            if (mounted) {
+                              setState(() => _awaitingAnswer = pending);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (!state.hasLineup)
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: spacing.md),
+                      child: FilledButton(
+                        onPressed: () => context.push('/games/$gameId/lineup'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: context.colors.field.surfaceHigh,
+                          foregroundColor: context.colors.field.on,
+                          minimumSize: const Size.fromHeight(44),
+                        ),
+                        child: const Text('Pick a batting order to start'),
+                      ),
+                    ),
+                  SizedBox(
+                    height: _nextUp,
+                    child: _handoff
+                        ? Text(
+                            'Drag the hitter where they reached. Undo fixes the last play.',
+                            textAlign: TextAlign.center,
+                            style: context.text.labelSmall?.copyWith(
+                              color: context.colors.field.muted,
+                            ),
+                          )
+                        : _NextUp(state: state),
+                  ),
+                  SizedBox(height: spacing.sm),
+                ],
+              ],
+            ),
+          ),
         );
       },
     );

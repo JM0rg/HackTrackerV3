@@ -28,7 +28,8 @@ class _PersonalStartSheet extends ConsumerStatefulWidget {
   const _PersonalStartSheet();
 
   @override
-  ConsumerState<_PersonalStartSheet> createState() => _PersonalStartSheetState();
+  ConsumerState<_PersonalStartSheet> createState() =>
+      _PersonalStartSheetState();
 }
 
 class _PersonalStartSheetState extends ConsumerState<_PersonalStartSheet> {
@@ -77,7 +78,9 @@ class _PersonalStartSheetState extends ConsumerState<_PersonalStartSheet> {
   }
 
   Future<void> _start() async {
-    final id = await ref.read(meRepositoryProvider).createPersonalGame(
+    final id = await ref
+        .read(meRepositoryProvider)
+        .createPersonalGame(
           opponentName: _opponent,
           playedForName: _teamName,
           playedForTeamId: _teamId,
@@ -233,9 +236,16 @@ class _TeamStartSheetState extends ConsumerState<_TeamStartSheet> {
   }
 
   Future<void> _pickCompetitions() async {
-    final all = await ref.read(trackerRepositoryProvider).watchCompetitions(widget.teamId).first;
+    final all = await ref
+        .read(trackerRepositoryProvider)
+        .watchCompetitions(widget.teamId)
+        .first;
     if (!mounted) return;
-    final picked = await showCompetitionPicker(context, all: all, selected: _competitionIds);
+    final picked = await showCompetitionPicker(
+      context,
+      all: all,
+      selected: _competitionIds,
+    );
     if (picked == null) return;
     setState(() => _competitionIds = picked);
   }
@@ -247,7 +257,9 @@ class _TeamStartSheetState extends ConsumerState<_TeamStartSheet> {
   }
 
   Future<void> _start() async {
-    final id = await ref.read(trackerRepositoryProvider).createGame(
+    final id = await ref
+        .read(trackerRepositoryProvider)
+        .createGame(
           teamId: widget.teamId,
           opponentId: _opponentId,
           park: _park,
@@ -261,7 +273,8 @@ class _TeamStartSheetState extends ConsumerState<_TeamStartSheet> {
   @override
   Widget build(BuildContext context) {
     final spacing = context.themeSpacing;
-    final comps = ref.watch(competitionsStreamProvider(widget.teamId)).valueOrNull ??
+    final comps =
+        ref.watch(competitionsStreamProvider(widget.teamId)).valueOrNull ??
         const <Competition>[];
     final compNames = [
       for (final c in comps)
@@ -333,7 +346,10 @@ class _TeamStartSheetState extends ConsumerState<_TeamStartSheet> {
 
 /// Recent names first, then a keyboard. Returns the name, an empty string to
 /// clear, or null if dismissed.
-Future<String?> showOpponentPicker(BuildContext context, {required List<String> recent}) {
+Future<String?> showOpponentPicker(
+  BuildContext context, {
+  required List<String> recent,
+}) {
   return showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
@@ -365,7 +381,9 @@ class _OpponentPickerState extends State<_OpponentPicker> {
     final spacing = context.themeSpacing;
     return _Frame(
       title: 'Opponent',
-      subtitle: widget.recent.isEmpty ? 'Who did you play?' : 'Recent first, or type a new one.',
+      subtitle: widget.recent.isEmpty
+          ? 'Who did you play?'
+          : 'Recent first, or type a new one.',
       keyboard: true,
       children: [
         for (final name in widget.recent)
@@ -439,13 +457,20 @@ class _CompetitionPickerState extends State<_CompetitionPicker> {
             }),
           ),
         SizedBox(height: context.themeSpacing.sm),
-        AppButton(label: 'Done', onPressed: () => Navigator.pop(context, _picked)),
+        AppButton(
+          label: 'Done',
+          onPressed: () => Navigator.pop(context, _picked),
+        ),
       ],
     );
   }
 }
 
-Future<String?> showTextPrompt(BuildContext context, {required String title, String? initial}) {
+Future<String?> showTextPrompt(
+  BuildContext context, {
+  required String title,
+  String? initial,
+}) {
   return showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
@@ -481,7 +506,10 @@ class _TextPromptState extends State<_TextPrompt> {
       children: [
         AppTextField(label: widget.title, controller: _text),
         SizedBox(height: context.themeSpacing.sm),
-        AppButton(label: 'Done', onPressed: () => Navigator.pop(context, _text.text)),
+        AppButton(
+          label: 'Done',
+          onPressed: () => Navigator.pop(context, _text.text),
+        ),
       ],
     );
   }
@@ -575,7 +603,8 @@ class _Frame extends StatelessWidget {
           spacing.md,
           spacing.sm,
           spacing.md,
-          (keyboard ? MediaQuery.of(context).viewInsets.bottom : 0) + spacing.md,
+          (keyboard ? MediaQuery.of(context).viewInsets.bottom : 0) +
+              spacing.md,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

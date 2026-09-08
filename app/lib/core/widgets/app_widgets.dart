@@ -96,7 +96,10 @@ class AppCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: radius,
-        child: Padding(padding: EdgeInsets.all(context.themeSpacing.md), child: child),
+        child: Padding(
+          padding: EdgeInsets.all(context.themeSpacing.md),
+          child: child,
+        ),
       ),
     );
   }
@@ -148,7 +151,9 @@ class _OfflineBannerState extends State<OfflineBanner> {
         padding: EdgeInsets.symmetric(vertical: context.themeSpacing.xs),
         child: Text(
           'Offline — scoring is saved on this device',
-          style: context.text.labelMedium?.copyWith(color: context.colors.fieldOn),
+          style: context.text.labelMedium?.copyWith(
+            color: context.colors.fieldOn,
+          ),
           textAlign: TextAlign.center,
         ),
       ),
@@ -180,7 +185,19 @@ class AppScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title), actions: actions, leading: leading),
+      appBar: AppBar(
+        toolbarHeight: 76,
+        centerTitle: false,
+        titleSpacing: 20,
+        title: Text(
+          title,
+          style: context.text.headlineLarge,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        actions: actions,
+        leading: leading,
+      ),
       body: Column(
         children: [
           const OfflineBanner(),
@@ -279,8 +296,14 @@ Future<bool> confirmAction(
         title: Text(title),
         content: Text(body),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Confirm')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Confirm'),
+          ),
         ],
       );
     },

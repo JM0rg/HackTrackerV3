@@ -4,6 +4,7 @@ import 'package:hacktracker/core/di/repository_providers.dart';
 import 'package:hacktracker/core/domain/pa_result.dart';
 import 'package:hacktracker/core/theme/theme_context_extensions.dart';
 import 'package:hacktracker/core/widgets/app_widgets.dart';
+import 'package:hacktracker/core/widgets/scorebook_surface.dart';
 import 'package:hacktracker/database/app_database.dart';
 import 'package:hacktracker/features/games/presentation/widgets/line_score.dart';
 import 'package:hacktracker/features/stats/services/stats_aggregator.dart';
@@ -72,14 +73,41 @@ class BoxScoreScreen extends ConsumerWidget {
                     ),
                   SizedBox(height: context.themeSpacing.md),
                   for (final line in rolled.values)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(names[line.playerId] ?? 'Unknown'),
-                      subtitle: Text(
-                        '${line.hits}-${line.atBats}  HR ${line.homeRuns}  '
-                        'RBI ${line.rbi}  R ${line.runs}  '
-                        'AVG ${line.avg.toStringAsFixed(3)}  '
-                        'OPS ${line.ops.toStringAsFixed(3)}',
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: ScorebookSurface(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              names[line.playerId] ?? 'Former player',
+                              style: context.text.titleLarge,
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${line.hits} for ${line.atBats}',
+                                    style: context.text.headlineMedium
+                                        ?.copyWith(
+                                          color: context.colors.accent,
+                                        ),
+                                  ),
+                                ),
+                                Text(
+                                  '${line.plateAppearances} PA',
+                                  style: context.text.bodySmall,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              '${line.homeRuns} HR · ${line.rbi} RBI · ${line.runs} R · ${line.walks} BB · ${line.strikeouts} K',
+                              style: context.text.bodyMedium,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                 ],

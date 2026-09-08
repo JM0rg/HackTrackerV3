@@ -1,3 +1,4 @@
+import 'package:hacktracker/core/widgets/scorebook_surface.dart';
 import 'package:hacktracker/core/theme/field_preferences.dart';
 import 'package:hacktracker/features/premium/presentation/plan_preview.dart';
 import 'package:flutter/material.dart';
@@ -20,45 +21,54 @@ class MoreScreen extends ConsumerWidget {
     final signedIn = user != null;
     final field = ref.watch(fieldPreferencesProvider);
     return AppScaffold(
-      title: 'More',
+      title: 'Settings',
       body: ListView(
         padding: EdgeInsets.all(context.themeSpacing.md),
         children: [
-          Text('Appearance', style: context.text.titleMedium),
-          SizedBox(height: context.themeSpacing.sm),
-          Text(
-            'Light, dark, or follow the device.',
-            style: context.text.bodySmall,
-          ),
-          SizedBox(height: context.themeSpacing.sm),
-          const ThemeModePicker(),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Outdoor contrast'),
-            subtitle: const Text(
-              'Stronger labels and basepaths in Field Mode.',
+          ScorebookSurface(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Appearance', style: context.text.titleMedium),
+                SizedBox(height: context.themeSpacing.sm),
+                Text(
+                  'Light, dark, or follow the device.',
+                  style: context.text.bodySmall,
+                ),
+                SizedBox(height: context.themeSpacing.sm),
+                const ThemeModePicker(),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Outdoor contrast'),
+                  subtitle: const Text(
+                    'Stronger labels and basepaths in Field Mode.',
+                  ),
+                  value: field.outdoor,
+                  onChanged: ref
+                      .read(fieldPreferencesProvider.notifier)
+                      .setOutdoor,
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Reduce motion'),
+                  subtitle: const Text('Keep the diamond still between plays.'),
+                  value: field.reduceMotion,
+                  onChanged: ref
+                      .read(fieldPreferencesProvider.notifier)
+                      .setReduceMotion,
+                ),
+              ],
             ),
-            value: field.outdoor,
-            onChanged: ref.read(fieldPreferencesProvider.notifier).setOutdoor,
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Reduce motion'),
-            subtitle: const Text('Keep the diamond still between plays.'),
-            value: field.reduceMotion,
-            onChanged: ref
-                .read(fieldPreferencesProvider.notifier)
-                .setReduceMotion,
           ),
           SizedBox(height: context.themeSpacing.lg),
-          BackupControls(signedIn: signedIn),
+          ScorebookSurface(child: BackupControls(signedIn: signedIn)),
           SizedBox(height: context.themeSpacing.lg),
           const PlanPreview(),
           SizedBox(height: context.themeSpacing.lg),
           Text('Account', style: context.text.titleMedium),
           SizedBox(height: context.themeSpacing.sm),
           Text(
-            'Scoring stays on this phone. Sign in only if you want sync, invites, or premium.',
+            'Your scorebook is saved on this device.',
             style: context.text.bodySmall,
           ),
           SizedBox(height: context.themeSpacing.sm),
@@ -89,7 +99,7 @@ class MoreScreen extends ConsumerWidget {
                   SizedBox(height: context.themeSpacing.xs),
                   Text(
                     Env.hasSupabase
-                        ? 'Sign in to sync and invite.'
+                        ? 'Connect your account.'
                         : 'Cloud sync is not configured on this build.',
                     style: context.text.bodySmall,
                   ),

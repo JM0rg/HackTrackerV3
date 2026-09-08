@@ -1,3 +1,4 @@
+import 'package:hacktracker/features/competitions/presentation/screens/competition_detail_screen.dart';
 import 'package:hacktracker/features/games/presentation/screens/games_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:hacktracker/core/theme/theme_context_extensions.dart';
@@ -32,9 +33,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/team/settings',
         builder: (c, s) => const TeamSettingsScreen(),
       ),
-      GoRoute(path: '/team/stats', builder: (c, s) => const TeamStatsScreen()),
+      GoRoute(
+        path: '/team/stats',
+        builder: (c, s) => TeamStatsScreen(
+          initialCompetitionId: s.uri.queryParameters['competition'],
+        ),
+      ),
       GoRoute(path: '/players', builder: (c, s) => const PlayersScreen()),
       GoRoute(path: '/opponents', builder: (c, s) => const OpponentsScreen()),
+      GoRoute(
+        path: '/competitions/:id',
+        builder: (c, s) =>
+            CompetitionDetailScreen(competitionId: s.pathParameters['id']!),
+      ),
       GoRoute(
         path: '/competitions',
         builder: (c, s) => const CompetitionsScreen(),
@@ -94,7 +105,7 @@ class AppShell extends StatelessWidget {
   }
 }
 
-/// A hairline, three icons, and a tint. No pill behind the selection.
+/// A compact scorebook dock with an animated selected tab.
 class _TabBar extends StatelessWidget {
   const _TabBar({required this.index, required this.onSelect});
 
@@ -110,17 +121,18 @@ class _TabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.bg,
-        border: Border(
-          top: BorderSide(color: colors.text.withValues(alpha: 0.06)),
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 54,
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
+        child: Container(
+          height: 64,
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            color: colors.surfaceHigh,
+            borderRadius: BorderRadius.circular(25),
+            border: Border.all(color: colors.border.withValues(alpha: .7)),
+          ),
           child: Row(
             children: [
               for (var i = 0; i < _tabs.length; i++)
@@ -130,29 +142,39 @@ class _TabBar extends StatelessWidget {
                     selected: i == index,
                     label: _tabs[i].$3,
                     excludeSemantics: true,
-                    child: InkResponse(
+                    child: InkWell(
                       onTap: () => onSelect(i),
-                      radius: 40,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            i == index ? _tabs[i].$1 : _tabs[i].$2,
-                            size: 24,
-                            color: i == index ? colors.accent : colors.muted,
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            _tabs[i].$3,
-                            style: context.text.labelSmall?.copyWith(
-                              fontSize: 10.5,
+                      borderRadius: BorderRadius.circular(20),
+                      child: AnimatedContainer(
+                        duration: MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : const Duration(milliseconds: 220),
+                        decoration: BoxDecoration(
+                          color: i == index
+                              ? colors.accent.withValues(alpha: .13)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              i == index ? _tabs[i].$1 : _tabs[i].$2,
+                              size: 22,
                               color: i == index ? colors.accent : colors.muted,
-                              fontWeight: i == index
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 3),
+                            Text(
+                              _tabs[i].$3,
+                              style: context.text.labelSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: i == index
+                                    ? colors.accent
+                                    : colors.muted,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

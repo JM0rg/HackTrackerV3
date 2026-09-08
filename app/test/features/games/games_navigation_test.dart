@@ -49,6 +49,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(MoreScreen), findsOneWidget);
     await tester.ensureVisible(find.text('Team Plus'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Team Plus'));
     await tester.pumpAndSettle();
     expect(container.read(planPreviewProvider), Plan.teamPlus);

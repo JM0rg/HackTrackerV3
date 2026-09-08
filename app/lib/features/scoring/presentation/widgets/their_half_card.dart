@@ -60,7 +60,7 @@ class _TheirHalfCardState extends State<TheirHalfCard> {
       onTap: _tap,
       onVerticalDragUpdate: (d) => setState(() => _dy += d.delta.dy),
       onVerticalDragEnd: (_) => _end(),
-      onVerticalDragCancel: _end,
+      onVerticalDragCancel: () => setState(() => _dy = 0),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(context.themeRadii.lg + 8),
@@ -81,8 +81,8 @@ class _TheirHalfCardState extends State<TheirHalfCard> {
                 label: 'One fewer run',
                 excludeSemantics: true,
                 child: SizedBox(
-                  width: 40,
-                  height: 40,
+                  width: 48,
+                  height: 48,
                   child: OutlinedButton(
                     key: const Key('their-minus'),
                     onPressed: tally == 0 ? null : () => widget.onRun(-1),
@@ -116,8 +116,12 @@ class _TheirHalfCardState extends State<TheirHalfCard> {
                     ),
                   ),
                   AnimatedScale(
-                    duration: const Duration(milliseconds: 160),
-                    scale: _pop ? 1.14 : 1,
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 160),
+                    scale: _pop && !MediaQuery.disableAnimationsOf(context)
+                        ? 1.14
+                        : 1,
                     child: Text(
                       '$tally',
                       key: const Key('their-tally'),

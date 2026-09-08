@@ -27,7 +27,9 @@ class LineScore extends StatelessWidget {
           text,
           style: header
               ? labelStyle
-              : valueStyle?.copyWith(fontWeight: bold ? FontWeight.w600 : FontWeight.w400),
+              : valueStyle?.copyWith(
+                  fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
+                ),
         ),
       );
     }
@@ -52,11 +54,9 @@ class LineScore extends StatelessWidget {
       );
     }
 
-    final them = row(
-      game.opponentName ?? 'Them',
-      [for (final line in sorted) line.theirRuns],
-      game.theirRuns,
-    );
+    final them = row(game.opponentName ?? 'Them', [
+      for (final line in sorted) line.theirRuns,
+    ], game.theirRuns);
     final us = row(
       'Us',
       [for (final line in sorted) line.ourRuns],

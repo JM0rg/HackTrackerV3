@@ -45,7 +45,8 @@ class LineupScreen extends ConsumerWidget {
                           CheckboxListTile(
                             value: selected.contains(p.id),
                             title: Text(
-                              '${p.jerseyNumber ?? ''} ${p.firstName} ${p.lastName}'.trim(),
+                              '${p.jerseyNumber ?? ''} ${p.firstName} ${p.lastName}'
+                                  .trim(),
                             ),
                             subtitle: selected.contains(p.id)
                                 ? Text('Bats ${selected.indexOf(p.id) + 1}')
@@ -58,7 +59,9 @@ class LineupScreen extends ConsumerWidget {
                                 next.remove(p.id);
                               }
                               if (teamId != null) {
-                                await ref.read(trackerRepositoryProvider).setLineup(
+                                await ref
+                                    .read(trackerRepositoryProvider)
+                                    .setLineup(
                                       teamId: teamId,
                                       gameId: gameId,
                                       playerIds: next,
@@ -72,7 +75,9 @@ class LineupScreen extends ConsumerWidget {
                   Padding(
                     padding: EdgeInsets.all(context.themeSpacing.md),
                     child: AppButton(
-                      label: selected.isEmpty ? 'Pick at least one batter' : 'Done',
+                      label: selected.isEmpty
+                          ? 'Pick at least one batter'
+                          : 'Done',
                       onPressed: selected.isEmpty
                           ? null
                           : () {

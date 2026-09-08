@@ -63,11 +63,14 @@ class _BatterCardState extends State<BatterCard> {
       onPanStart: (_) => setState(() => _swiping = true),
       onPanUpdate: (d) => setState(() => _offset += d.delta),
       onPanEnd: (_) => _end(),
-      onPanCancel: _end,
+      onPanCancel: () => setState(() {
+        _offset = Offset.zero;
+        _swiping = false;
+      }),
       child: SizedBox(
         height: widget.height,
         child: AnimatedContainer(
-          duration: _swiping
+          duration: _swiping || MediaQuery.disableAnimationsOf(context)
               ? Duration.zero
               : const Duration(milliseconds: 200),
           curve: Curves.easeOut,
@@ -75,7 +78,9 @@ class _BatterCardState extends State<BatterCard> {
           child: Opacity(
             opacity: fade,
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 340),
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 340),
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeIn,
               transitionBuilder: (child, animation) {
@@ -122,49 +127,83 @@ class _Batter extends StatelessWidget {
         ? 'No lineup'
         : '${batter.firstName} ${batter.lastName}'.trim();
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        if (jersey != null && jersey.isNotEmpty)
-          Text(
-            '#$jersey',
-            style: context.text.labelSmall?.copyWith(
-              color: field.muted,
-              letterSpacing: 1.6,
-              fontFeatures: tabularFigures,
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: field.surfaceHigh,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: field.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 60,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: field.accent.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              jersey?.isNotEmpty == true
+                  ? jersey!
+                  : batter?.firstName.characters.firstOrNull ?? '—',
+              style: context.text.headlineSmall?.copyWith(
+                color: field.accent,
+                fontFeatures: tabularFigures,
+              ),
             ),
           ),
-        Text(
-          name,
-          key: const Key('card-first'),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: context.text.headlineSmall?.copyWith(
-            color: field.on,
-            fontSize: 27,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.7,
-            height: 1.1,
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'AT BAT',
+                  style: context.text.labelSmall?.copyWith(
+                    color: field.accent,
+                    letterSpacing: 2,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  name,
+                  key: const Key('card-first'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.headlineSmall?.copyWith(
+                    color: field.on,
+                    fontSize: 24,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                if (batter == null || line == null)
+                  Text(
+                    'Pick a batting order to start',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.text.bodySmall?.copyWith(color: field.muted),
+                  )
+                else
+                  _DayLine(
+                    hits: line.hits,
+                    atBats: line.atBats,
+                    results: line.results,
+                    rbi: state.replay.pas
+                        .where((p) => p.playerId == batter.id)
+                        .fold<int>(0, (a, p) => a + p.rbi),
+                    runs: null,
+                    size: 14,
+                  ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 6),
-        if (batter == null || line == null)
-          Text(
-            'Pick a batting order to start',
-            style: context.text.bodySmall?.copyWith(color: field.muted),
-          )
-        else
-          _DayLine(
-            hits: line.hits,
-            atBats: line.atBats,
-            results: line.results,
-            rbi: state.replay.pas
-                .where((p) => p.playerId == batter.id)
-                .fold<int>(0, (a, p) => a + p.rbi),
-            runs: null,
-            size: 15,
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

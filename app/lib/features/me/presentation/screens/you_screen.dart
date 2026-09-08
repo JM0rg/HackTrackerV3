@@ -1,3 +1,5 @@
+import 'package:hacktracker/features/me/presentation/widgets/scorebook_cards.dart';
+import 'package:hacktracker/core/widgets/scorebook_surface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,13 +9,10 @@ import 'package:hacktracker/core/domain/models/game_scope.dart';
 import 'package:hacktracker/core/domain/models/you_filter.dart';
 import 'package:hacktracker/core/theme/theme_context_extensions.dart';
 import 'package:hacktracker/core/widgets/app_widgets.dart';
-import 'package:hacktracker/core/widgets/diamond_glyph.dart';
-import 'package:hacktracker/core/widgets/surfaces.dart';
 import 'package:hacktracker/database/app_database.dart';
 import 'package:hacktracker/features/games/presentation/widgets/live_card.dart';
 import 'package:hacktracker/features/games/presentation/widgets/start_sheet.dart';
 import 'package:hacktracker/features/me/services/you_stats.dart';
-import 'package:hacktracker/features/stats/services/stats_aggregator.dart';
 import 'package:intl/intl.dart';
 
 /// Home. No app bar: your name is the title, the live game is the hero, four
@@ -61,21 +60,12 @@ class YouScreen extends ConsumerWidget {
             // zeros, no header over an empty list, no filter with nothing to
             // filter.
             if (all.isEmpty && live == null) {
-              return Column(
+              return ListView(
+                padding: EdgeInsets.fromLTRB(s.md, s.sm, s.md, 28),
                 children: [
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(s.md, s.sm, s.md, 0),
-                    child: header,
-                  ),
-                  Expanded(
-                    child: EmptyState(
-                      art: const DiamondGlyph(),
-                      title: 'Your first at-bat',
-                      actionLabel: 'Start a game',
-                      onAction: start,
-                    ),
-                  ),
-                  SizedBox(height: s.lg),
+                  header,
+                  const SizedBox(height: 24),
+                  FirstGameCard(onStart: start),
                 ],
               );
             }
@@ -91,7 +81,7 @@ class YouScreen extends ConsumerWidget {
                       LiveCard(game: live, line: lines[live.id]),
                     ],
                     SizedBox(height: s.lg),
-                    _Numbers(line: career),
+                    CareerCard(line: career),
                     if (myTeams.isNotEmpty) ...[
                       SizedBox(height: s.md),
                       _Filters(teams: myTeams, filter: filter, ref: ref),
@@ -253,6 +243,8 @@ class _Header extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const ScorebookLabel('HackTracker'),
+                  const SizedBox(height: 5),
                   Text(
                     _named ? person.firstName : 'Set your name',
                     key: const Key('you-name'),
@@ -286,29 +278,6 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _Numbers extends StatelessWidget {
-  const _Numbers({required this.line});
-
-  final PlayerLine? line;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = line;
-    final avg = l == null
-        ? '.000'
-        : l.avg.toStringAsFixed(3).replaceFirst(RegExp(r'^0'), '');
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        StatColumn(value: avg, label: 'Average'),
-        StatColumn(value: '${l?.hits ?? 0}', label: 'Hits'),
-        StatColumn(value: '${l?.homeRuns ?? 0}', label: 'Home runs'),
-        StatColumn(value: '${l?.rbi ?? 0}', label: 'RBI'),
-      ],
-    );
-  }
-}
-
 class _Filters extends StatelessWidget {
   const _Filters({
     required this.teams,
@@ -324,7 +293,7 @@ class _Filters extends StatelessWidget {
   Widget build(BuildContext context) {
     void set(YouFilter f) => ref.read(youFilterProvider.notifier).state = f;
     return SizedBox(
-      height: 34,
+      height: 44,
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
@@ -417,9 +386,14 @@ class _GameRow extends StatelessWidget {
       onTap: () => context.push('/games/${game.id}'),
       child: Column(
         children: [
-          const Hairline(),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: colors.border.withValues(alpha: .5)),
+            ),
             child: Row(
               children: [
                 SizedBox(

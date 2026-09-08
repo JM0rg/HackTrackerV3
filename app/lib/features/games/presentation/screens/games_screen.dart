@@ -1,3 +1,6 @@
+import 'package:hacktracker/features/games/presentation/widgets/game_history_card.dart';
+import 'package:hacktracker/core/widgets/scorebook_surface.dart';
+import 'package:hacktracker/core/widgets/diamond_glyph.dart';
 import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +12,6 @@ import 'package:hacktracker/core/theme/theme_context_extensions.dart';
 import 'package:hacktracker/core/widgets/app_widgets.dart';
 import 'package:hacktracker/database/app_database.dart';
 import 'package:hacktracker/features/games/presentation/widgets/start_sheet.dart';
-import 'package:intl/intl.dart';
 
 final allGamesProvider = StreamProvider<List<Game>>((ref) {
   final db = ref.watch(databaseProvider);
@@ -134,13 +136,19 @@ class _GamesScreenState extends ConsumerState<GamesScreen> {
                     ),
                     const SizedBox(height: 20),
                     if (visible.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 40),
-                        child: Text(
-                          all.isEmpty
-                              ? 'Every game, across every team. Start one when you’re ready.'
-                              : 'No games in this view yet.',
-                          style: context.text.bodyLarge,
+                      ScorebookSurface(
+                        child: Column(
+                          children: [
+                            const DiamondGlyph(size: 110),
+                            const SizedBox(height: 24),
+                            Text(
+                              all.isEmpty
+                                  ? 'Every game, across every team. Start one when you’re ready.'
+                                  : 'No games in this view yet.',
+                              style: context.text.bodyLarge,
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
                       ),
                   ],
@@ -148,48 +156,12 @@ class _GamesScreenState extends ConsumerState<GamesScreen> {
               }
               final game = visible[index - 1];
               return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: AppCard(
-                  onTap: () => context.push('/games/${game.id}'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              game.kind == GameKind.personal
-                                  ? (game.playedForName ?? 'Your at-bats')
-                                  : (names[game.teamId] ?? 'Team game'),
-                              style: context.text.titleMedium,
-                            ),
-                          ),
-                          Text(
-                            game.status == 'live'
-                                ? 'LIVE'
-                                : game.status.toUpperCase(),
-                            style: context.text.labelSmall?.copyWith(
-                              color: game.status == 'live'
-                                  ? context.colors.accent
-                                  : context.colors.muted,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${DateFormat('EEE, MMM d').format((game.startsAt ?? game.createdAt).toLocal())}${game.park == null ? '' : ' · ${game.park}'}',
-                        style: context.text.bodySmall,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        game.kind == GameKind.personal && game.scope == 'bat'
-                            ? 'Personal scorebook'
-                            : '${game.ourRuns} – ${game.theirRuns}',
-                        style: context.text.headlineMedium,
-                      ),
-                    ],
-                  ),
+                padding: const EdgeInsets.only(bottom: 14),
+                child: GameHistoryCard(
+                  game: game,
+                  teamName: game.kind == GameKind.personal
+                      ? (game.playedForName ?? 'Your at-bats')
+                      : (names[game.teamId] ?? 'Your team'),
                 ),
               );
             },

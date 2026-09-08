@@ -879,6 +879,45 @@ class _LinesPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final g = geometry;
+    final ground = Path()
+      ..moveTo(g.home.dx, g.home.dy)
+      ..lineTo(g.first.dx, g.first.dy)
+      ..lineTo(g.second.dx, g.second.dy)
+      ..lineTo(g.third.dx, g.third.dy)
+      ..close();
+    canvas.drawPath(
+      ground,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            palette.accent.withValues(alpha: .14),
+            palette.accent.withValues(alpha: .025),
+          ],
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
+    );
+    final center = Offset(g.home.dx, (g.home.dy + g.second.dy) / 2);
+    canvas.drawCircle(
+      center,
+      15 * g.scale,
+      Paint()..color = palette.accent.withValues(alpha: .06),
+    );
+    canvas.drawCircle(
+      center,
+      15 * g.scale,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = palette.lineStrong,
+    );
+    canvas.drawLine(
+      center - Offset(5 * g.scale, 0),
+      center + Offset(5 * g.scale, 0),
+      Paint()
+        ..color = palette.muted
+        ..strokeWidth = 2,
+    );
     final lines = Path()
       ..moveTo(g.home.dx, g.home.dy)
       ..lineTo(g.first.dx, g.first.dy)

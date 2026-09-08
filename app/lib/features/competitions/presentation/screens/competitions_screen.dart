@@ -1,3 +1,5 @@
+import 'package:go_router/go_router.dart';
+import 'package:hacktracker/core/widgets/scorebook_surface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hacktracker/core/di/providers.dart';
@@ -37,12 +39,72 @@ class CompetitionsScreen extends ConsumerWidget {
                 onAction: () => _edit(context, ref, teamId),
               )
             : ListView(
+                padding: const EdgeInsets.all(20),
                 children: [
                   for (final c in list)
-                    ListTile(
-                      title: Text(c.name),
-                      subtitle: Text(c.type == 'tournament' ? 'Tournament' : 'Season'),
-                      onTap: () => _edit(context, ref, teamId, existing: c),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: InkWell(
+                        onTap: () => context.push('/competitions/${c.id}'),
+                        borderRadius: BorderRadius.circular(28),
+                        child: ScorebookSurface(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.emoji_events_outlined,
+                                    color: context.colors.accent,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: ScorebookLabel(c.type, accent: true),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Edit competition',
+                                    onPressed: () => _edit(
+                                      context,
+                                      ref,
+                                      teamId,
+                                      existing: c,
+                                    ),
+                                    icon: const Icon(
+                                      Icons.edit_outlined,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(c.name, style: context.text.headlineMedium),
+                              if (c.leagueName != null) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  c.leagueName!,
+                                  style: context.text.bodySmall,
+                                ),
+                              ],
+                              const SizedBox(height: 18),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Games & stats',
+                                      style: context.text.bodySmall,
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.arrow_forward_rounded,
+                                    color: context.colors.accent,
+                                    size: 18,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                 ],
               ),
@@ -68,14 +130,22 @@ class CompetitionsScreen extends ConsumerWidget {
         return StatefulBuilder(
           builder: (ctx, setSt) {
             return Padding(
-              padding: EdgeInsets.all(context.themeSpacing.md),
+              padding: EdgeInsets.fromLTRB(
+                context.themeSpacing.md,
+                context.themeSpacing.md,
+                context.themeSpacing.md,
+                MediaQuery.viewInsetsOf(ctx).bottom + context.themeSpacing.md,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SegmentedButton<String>(
                     segments: const [
                       ButtonSegment(value: 'season', label: Text('Season')),
-                      ButtonSegment(value: 'tournament', label: Text('Tournament')),
+                      ButtonSegment(
+                        value: 'tournament',
+                        label: Text('Tournament'),
+                      ),
                     ],
                     selected: {type},
                     onSelectionChanged: (s) => setSt(() => type = s.first),
@@ -88,12 +158,16 @@ class CompetitionsScreen extends ConsumerWidget {
                   AppButton(
                     label: 'Save',
                     onPressed: () async {
-                      await ref.read(trackerRepositoryProvider).upsertCompetition(
+                      await ref
+                          .read(trackerRepositoryProvider)
+                          .upsertCompetition(
                             id: existing?.id,
                             teamId: teamId,
                             type: type,
                             name: name.text.trim(),
-                            leagueName: league.text.trim().isEmpty ? null : league.text.trim(),
+                            leagueName: league.text.trim().isEmpty
+                                ? null
+                                : league.text.trim(),
                           );
                       if (ctx.mounted) Navigator.pop(ctx);
                     },
