@@ -1,6 +1,7 @@
 import 'package:hacktracker/features/scoring/presentation/screens/field_mode_screen.dart';
 // Runs real Flutter rendering and SQLite on iOS/Android with isolated test data.
-// No Supabase initialization, production writes, or existing scorebook deletion.
+// No Supabase initialization or production writes. Use a disposable device:
+// Flutter's test runner uninstalls the app and deletes its sandbox after testing.
 import 'dart:io';
 import 'package:hacktracker/features/scoring/presentation/widgets/one_card_diamond.dart';
 import 'package:hacktracker/features/scoring/presentation/widgets/contact_field.dart';
