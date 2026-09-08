@@ -61,16 +61,6 @@ class _TeamSettingsScreenState extends ConsumerState<TeamSettingsScreen> {
                   Text('Scoring modules', style: context.text.titleMedium),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Track ball location'),
-                    subtitle: const Text(
-                      'Default for location scoring in new games',
-                    ),
-                    value: modules['spray'] == true,
-                    onChanged: (v) =>
-                        _set(team, settings, modules: {'spray': v}),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
                     title: const Text('Fielding'),
                     value: modules['fielding'] == true,
                     onChanged: (v) =>

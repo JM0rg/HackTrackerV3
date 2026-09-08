@@ -30,6 +30,7 @@ void main() {
         sharedPreferencesProvider.overrideWithValue(prefs),
       ],
     );
+    expect(container.read(locationTrackingProvider), isFalse);
     final router = container.read(routerProvider);
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -53,6 +54,11 @@ void main() {
     await tester.tap(find.text('Team Plus'));
     await tester.pumpAndSettle();
     expect(container.read(planPreviewProvider), Plan.teamPlus);
+    expect(container.read(locationTrackingProvider), isTrue);
+    await container.read(planPreviewProvider.notifier).select(Plan.playerPlus);
+    expect(container.read(locationTrackingProvider), isTrue);
+    await container.read(planPreviewProvider.notifier).select(Plan.free);
+    expect(container.read(locationTrackingProvider), isFalse);
     await tester.pumpWidget(const SizedBox.shrink());
     router.dispose();
     container.dispose();

@@ -1,4 +1,3 @@
-import 'package:hacktracker/core/domain/models/team_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hacktracker/core/di/repository_providers.dart';
@@ -40,7 +39,6 @@ class _PersonalStartSheetState extends ConsumerState<_PersonalStartSheet> {
   String? _teamName;
   String? _opponent;
   bool _loaded = false;
-  bool _contact = false;
 
   @override
   void initState() {
@@ -53,7 +51,6 @@ class _PersonalStartSheetState extends ConsumerState<_PersonalStartSheet> {
     if (!mounted) return;
     setState(() {
       if (last != null) {
-        _contact = TeamSettings.fromJson(last.settingsSnapshot).modules.spray;
         _scope = last.scope;
         _homeAway = last.homeAway;
         _teamId = last.playedForTeamId;
@@ -89,7 +86,6 @@ class _PersonalStartSheetState extends ConsumerState<_PersonalStartSheet> {
           playedForTeamId: _teamId,
           scope: _scope,
           homeAway: _homeAway,
-          trackContact: _contact,
         );
     if (mounted) Navigator.pop(context, id);
   }
@@ -143,15 +139,6 @@ class _PersonalStartSheetState extends ConsumerState<_PersonalStartSheet> {
             ),
           ],
         ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Track ball location'),
-          subtitle: const Text(
-            'Drag to the ball’s location, then choose the result',
-          ),
-          value: _contact,
-          onChanged: (v) => setState(() => _contact = v),
-        ),
         SizedBox(height: spacing.lg),
         SizedBox(
           height: 54,
@@ -185,7 +172,6 @@ class _TeamStartSheetState extends ConsumerState<_TeamStartSheet> {
   Set<String> _competitionIds = {};
   int _lineupFromLast = 0;
   bool _loaded = false;
-  bool _contact = false;
 
   @override
   void initState() {
@@ -195,10 +181,6 @@ class _TeamStartSheetState extends ConsumerState<_TeamStartSheet> {
 
   Future<void> _loadDefaults() async {
     final tracker = ref.read(trackerRepositoryProvider);
-    final teams = await tracker.teams();
-    _contact = TeamSettings.fromJson(
-      teams.where((t) => t.id == widget.teamId).firstOrNull?.settings,
-    ).modules.spray;
     final last = await tracker.lastTeamGame(widget.teamId);
     if (last != null) {
       _homeAway = last.homeAway;
@@ -283,7 +265,6 @@ class _TeamStartSheetState extends ConsumerState<_TeamStartSheet> {
           park: _park,
           startsAt: DateTime.now(),
           homeAway: _homeAway,
-          trackContact: _contact,
           competitionIds: _competitionIds.toList(),
         );
     if (mounted) Navigator.pop(context, id);
@@ -346,15 +327,6 @@ class _TeamStartSheetState extends ConsumerState<_TeamStartSheet> {
               onTap: _pickPark,
             ),
           ],
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Track ball location'),
-          subtitle: const Text(
-            'Drag to the ball’s location, then choose the result',
-          ),
-          value: _contact,
-          onChanged: (v) => setState(() => _contact = v),
         ),
         SizedBox(height: spacing.lg),
         SizedBox(

@@ -1,3 +1,4 @@
+import 'package:hacktracker/features/premium/data/plan_provider.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,7 +38,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [databaseProvider.overrideWithValue(db)],
+        overrides: [databaseProvider.overrideWithValue(db), locationTrackingProvider.overrideWithValue(false)],
         child: MaterialApp(
           theme: AppTheme.dark(),
           home: FieldModeScreen(gameId: gameId),

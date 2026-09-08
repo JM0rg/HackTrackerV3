@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:hacktracker/features/premium/data/plan_provider.dart';
 import 'dart:math' as math;
 import 'package:hacktracker/features/scoring/presentation/widgets/contact_scorer.dart';
 
@@ -102,6 +104,26 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
   FieldModeState get state => widget.state;
   String get gameId => widget.gameId;
 
+  bool _contactMode(bool premium) {
+    // Complete an already-started play in its original input mode. Plan changes
+    // take effect for the following play, without deleting or reinterpreting it.
+    try {
+      final raw = jsonDecode(state.game.scoringDraft ?? 'null');
+      final sequence = [
+        0,
+        ...state.events.map((e) => e.sequence),
+        ...state.replay.pas.map((p) => p.sequence),
+      ].reduce((a, b) => a > b ? a : b);
+      if (raw is Map &&
+          raw['batterId'] == state.batter?.id &&
+          raw['sequence'] == sequence) {
+        if (raw['version'] == 1) return false;
+        if (raw['version'] == 2) return true;
+      }
+    } catch (_) {}
+    return premium;
+  }
+
   static const _topRow = 48.0;
   static const _hero = 164.0;
   static const _card = 110.0;
@@ -118,11 +140,13 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
     final repo = ref.read(scoringRepositoryProvider);
     final theirs = state.tracksScore && !state.replay.weBat;
     final textScale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0);
+    final premium = ref.watch(locationTrackingProvider);
+    final contact = _contactMode(premium);
     final heroHeight = state.tracksScore
-        ? (state.settings.modules.spray ? 100.0 : _hero) * textScale
+        ? (contact ? 100.0 : _hero) * textScale
         : 0.0;
     final cardHeight =
-        (state.settings.modules.spray
+        (contact
             ? 76
             : state.tracksScore
             ? _card
@@ -135,7 +159,6 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
       builder: (context, constraints) {
         // Reserve space for retry feedback; large text scrolls instead of
         // compressing the scoring controls.
-        final contact = state.settings.modules.spray;
         final contentHeight = math.max(
           constraints.maxHeight,
           (contact ? 820 : 828) * textScale,
@@ -227,7 +250,7 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
                             ),
                             child: Center(
                               child: ScoreHero(
-                                compact: state.settings.modules.spray,
+                                compact: contact,
                                 state: state,
                                 onTap: _handoff
                                     ? null
@@ -388,6 +411,7 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
                       child: contact
                           ? SingleChildScrollView(
                               child: ContactScorer(
+                                captureEnabled: premium,
                                 key: ValueKey('contact-$gameId'),
                                 state: state,
                                 onWave: (id) => _wave(repo, id),
@@ -493,17 +517,10 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
     return repo.jumpToBatter(game: state.game, index: next);
   }
 
-  ScoringRepository repoForContact(WidgetRef ref) =>
-      ref.read(scoringRepositoryProvider);
-
   Future<void> _openMenu(BuildContext context, WidgetRef ref) async {
     final action = await showGameMenu(context, state);
     if (action == null || !context.mounted) return;
     switch (action) {
-      case GameMenuAction.contactMode:
-        await repoForContact(
-          ref,
-        ).setContactMode(state.game, !state.settings.modules.spray);
       case GameMenuAction.sprayChart:
         context.push('/spray?game=$gameId');
       case GameMenuAction.boxScore:

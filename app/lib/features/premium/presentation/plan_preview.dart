@@ -40,11 +40,12 @@ class PlanPreview extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(switch (plan) {
-            Plan.free => 'Free keeps your games on this device.',
+            Plan.free =>
+              'Free keeps games on this device with base-drag scoring.',
             Plan.playerPlus =>
-              'Player Plus previews personal cloud backup and stats across devices.',
+              'Player Plus enables ball-location scoring. Personal cloud backup remains a preview.',
             Plan.teamPlus =>
-              'Team Plus previews team sharing, player invites, and team cloud backup.',
+              'Team Plus enables ball-location scoring. Team sharing and cloud backup remain previews.',
           }),
           const SizedBox(height: 8),
           Text(

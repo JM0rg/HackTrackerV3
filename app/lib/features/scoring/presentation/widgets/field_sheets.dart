@@ -1,3 +1,4 @@
+import 'package:hacktracker/features/premium/data/plan_provider.dart';
 import 'package:hacktracker/core/domain/models/contact_location.dart';
 import 'contact_scorer.dart';
 import 'package:hacktracker/features/scoring/presentation/widgets/runner_resolution_sheet.dart';
@@ -429,7 +430,9 @@ class _FixSheet extends ConsumerWidget {
       ),
     );
 
-    if (pa.requested != PaResult.walk && pa.requested != PaResult.strikeout) {
+    if (ref.watch(locationTrackingProvider) &&
+        pa.requested != PaResult.walk &&
+        pa.requested != PaResult.strikeout) {
       children.add(
         ListTile(
           title: const Text('Ball location / flight'),
@@ -454,7 +457,7 @@ class _FixSheet extends ConsumerWidget {
       );
     }
     if (team && state.settings.modules.capturesDetail) {
-      if (state.settings.modules.spray || state.settings.modules.fielding) {
+      if (ref.watch(locationTrackingProvider)) {
         children.add(_sectionLabel(context, 'WHERE IT WENT'));
         children.add(
           Wrap(
@@ -677,14 +680,7 @@ class _LogSheet extends ConsumerWidget {
   }
 }
 
-enum GameMenuAction {
-  endGame,
-  editLineup,
-  boxScore,
-  switchScope,
-  contactMode,
-  sprayChart,
-}
+enum GameMenuAction { endGame, editLineup, boxScore, switchScope, sprayChart }
 
 Future<GameMenuAction?> showGameMenu(
   BuildContext context,
@@ -708,13 +704,6 @@ Future<GameMenuAction?> showGameMenu(
       title: 'Game',
       children: [
         item(Icons.scatter_plot, 'Spray chart', GameMenuAction.sprayChart),
-        item(
-          Icons.sports_baseball_outlined,
-          state.settings.modules.spray
-              ? 'Use base-drag scoring'
-              : 'Track ball location',
-          GameMenuAction.contactMode,
-        ),
         item(Icons.table_chart_outlined, 'Box score', GameMenuAction.boxScore),
         if (!state.personal)
           item(Icons.list_alt, 'Edit lineup', GameMenuAction.editLineup),

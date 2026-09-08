@@ -18,8 +18,10 @@ class ContactScorer extends StatefulWidget {
     required this.onDraftChanged,
     required this.onPendingChanged,
     required this.onWave,
+    this.captureEnabled = true,
   });
   final FieldModeState state;
+  final bool captureEnabled;
   final Future<void> Function(LoggedPlay) onCommit;
   final Future<void> Function(String?) onDraftChanged;
   final ValueChanged<bool> onPendingChanged;
@@ -295,10 +297,18 @@ class _ContactScorerState extends State<ContactScorer> {
           ContactField(
             fieldMode: true,
             location: _location,
-            onLocation: state.hasLineup && !_saving && _phase != 'ready'
+            onLocation:
+                state.hasLineup &&
+                    widget.captureEnabled &&
+                    !_saving &&
+                    _phase != 'ready'
                 ? _pick
                 : null,
-            onOut: state.hasLineup && !_saving && _phase != 'ready'
+            onOut:
+                state.hasLineup &&
+                    widget.captureEnabled &&
+                    !_saving &&
+                    _phase != 'ready'
                 ? _out
                 : null,
           ),
@@ -345,83 +355,85 @@ class _ContactScorerState extends State<ContactScorer> {
                   _button('Skip location', () => _pick(null)),
                 ],
               ),
-              ExpansionTile(
-                title: const Text('Area / optional detail'),
-                tilePadding: EdgeInsets.zero,
-                children: [
-                  Wrap(
-                    spacing: 4,
-                    children: [
-                      for (final region in ContactLocation.regions)
-                        _button(
-                          region,
-                          () => _pick(ContactLocation(region: region)),
-                        ),
-                    ],
-                  ),
-                  Wrap(
-                    spacing: 4,
-                    children: [
-                      for (final flight in ContactLocation.flights)
-                        ChoiceChip(
-                          label: Text(flight),
-                          selected: _location?.flight == flight,
-                          onSelected: _saving
-                              ? null
-                              : (_) {
-                                  setState(
-                                    () => _location = ContactLocation(
-                                      x: _location?.x,
-                                      y: _location?.y,
-                                      region: _location?.region,
-                                      flight: _location?.flight == flight
-                                          ? null
-                                          : flight,
-                                    ),
-                                  );
-                                  _changed();
-                                },
-                        ),
-                    ],
-                  ),
-                  if (state.personal || state.settings.modules.contact)
+              if (widget.captureEnabled)
+                ExpansionTile(
+                  title: const Text('Area / optional detail'),
+                  tilePadding: EdgeInsets.zero,
+                  children: [
                     Wrap(
                       spacing: 4,
                       children: [
-                        for (final q in ['weak', 'medium', 'hard'])
+                        for (final region in ContactLocation.regions)
+                          _button(
+                            region,
+                            () => _pick(ContactLocation(region: region)),
+                          ),
+                      ],
+                    ),
+                    Wrap(
+                      spacing: 4,
+                      children: [
+                        for (final flight in ContactLocation.flights)
                           ChoiceChip(
-                            label: Text(q),
-                            selected: _quality == q,
+                            label: Text(flight),
+                            selected: _location?.flight == flight,
                             onSelected: _saving
                                 ? null
                                 : (_) {
                                     setState(
-                                      () => _quality = _quality == q ? null : q,
+                                      () => _location = ContactLocation(
+                                        x: _location?.x,
+                                        y: _location?.y,
+                                        region: _location?.region,
+                                        flight: _location?.flight == flight
+                                            ? null
+                                            : flight,
+                                      ),
                                     );
                                     _changed();
                                   },
                           ),
                       ],
                     ),
-                  Wrap(
-                    spacing: 4,
-                    children: [
-                      const Text('Batting side'),
-                      for (final side in ['left', 'right'])
-                        ChoiceChip(
-                          label: Text(side),
-                          selected: (_side ?? state.batter?.bats) == side,
-                          onSelected: _saving
-                              ? null
-                              : (_) {
-                                  setState(() => _side = side);
-                                  _changed();
-                                },
-                        ),
-                    ],
-                  ),
-                ],
-              ),
+                    if (state.personal || state.settings.modules.contact)
+                      Wrap(
+                        spacing: 4,
+                        children: [
+                          for (final q in ['weak', 'medium', 'hard'])
+                            ChoiceChip(
+                              label: Text(q),
+                              selected: _quality == q,
+                              onSelected: _saving
+                                  ? null
+                                  : (_) {
+                                      setState(
+                                        () =>
+                                            _quality = _quality == q ? null : q,
+                                      );
+                                      _changed();
+                                    },
+                            ),
+                        ],
+                      ),
+                    Wrap(
+                      spacing: 4,
+                      children: [
+                        const Text('Batting side'),
+                        for (final side in ['left', 'right'])
+                          ChoiceChip(
+                            label: Text(side),
+                            selected: (_side ?? state.batter?.bats) == side,
+                            onSelected: _saving
+                                ? null
+                                : (_) {
+                                    setState(() => _side = side);
+                                    _changed();
+                                  },
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
             ],
             if (_phase == 'how')
               Wrap(

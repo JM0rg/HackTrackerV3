@@ -1,5 +1,7 @@
 @Tags(['golden'])
 library;
+import 'package:hacktracker/features/premium/data/plan_provider.dart';
+
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -61,7 +63,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [databaseProvider.overrideWithValue(db)],
+        overrides: [databaseProvider.overrideWithValue(db), locationTrackingProvider.overrideWithValue(false)],
         child: MaterialApp.router(
           debugShowCheckedModeBanner: false,
           theme: AppTheme.dark(fontFamily: 'Roboto'),

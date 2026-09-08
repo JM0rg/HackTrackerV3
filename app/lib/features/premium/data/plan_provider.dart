@@ -10,6 +10,7 @@ enum Plan {
 
   const Plan(this.label);
   final String label;
+  bool get locationTracking => this != free;
   bool get personalCloud => this != free;
   bool get teamCloud => this == teamPlus;
 }
@@ -35,3 +36,8 @@ class PlanPreviewController extends Notifier<Plan> {
     state = plan;
   }
 }
+
+/// Central access decision; store entitlements can replace the preview later.
+final locationTrackingProvider = Provider<bool>(
+  (ref) => ref.watch(planPreviewProvider).locationTracking,
+);

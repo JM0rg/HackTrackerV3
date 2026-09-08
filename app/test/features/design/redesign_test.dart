@@ -1,3 +1,4 @@
+import 'package:hacktracker/features/premium/data/plan_provider.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,7 +63,7 @@ void main() {
           result: PaResult.double,
         );
         final container = ProviderContainer(
-          overrides: [databaseProvider.overrideWithValue(db)],
+          overrides: [databaseProvider.overrideWithValue(db), locationTrackingProvider.overrideWithValue(false)],
         );
         container.read(currentTeamIdProvider.notifier).state = team.id;
         tester.view.devicePixelRatio = 1;
