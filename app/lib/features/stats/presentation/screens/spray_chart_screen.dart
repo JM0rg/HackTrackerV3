@@ -214,16 +214,18 @@ class _SprayChartScreenState extends ConsumerState<SprayChartScreen> {
                       spacing: 8,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
+                        // The marks sit on turf, so the key uses the
+                        // field's colours, not the page's.
                         Icon(
                           Icons.circle,
                           size: 10,
-                          color: context.colors.accent,
+                          color: context.colors.field.accent,
                         ),
                         const Text('Hit'),
                         Icon(
                           Icons.close,
                           size: 14,
-                          color: context.colors.muted,
+                          color: context.colors.field.muted,
                         ),
                         const Text('Other outcome'),
                       ],

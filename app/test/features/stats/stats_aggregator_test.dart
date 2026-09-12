@@ -7,8 +7,18 @@ void main() {
 
   test('walk is a PA but not an AB', () {
     final line = agg.rollup([
-      const PaInput(playerId: 'p', result: PaResult.walk, rbi: 0, runsScored: 0),
-      const PaInput(playerId: 'p', result: PaResult.single, rbi: 1, runsScored: 0),
+      const PaInput(
+        playerId: 'p',
+        result: PaResult.walk,
+        rbi: 0,
+        runsScored: 0,
+      ),
+      const PaInput(
+        playerId: 'p',
+        result: PaResult.single,
+        rbi: 1,
+        runsScored: 0,
+      ),
     ])['p']!;
     expect(line.plateAppearances, 2);
     expect(line.atBats, 1);
@@ -20,7 +30,12 @@ void main() {
 
   test('sac fly is a PA not an AB', () {
     final sf = agg.rollup([
-      const PaInput(playerId: 'p', result: PaResult.sacFly, rbi: 1, runsScored: 0),
+      const PaInput(
+        playerId: 'p',
+        result: PaResult.sacFly,
+        rbi: 1,
+        runsScored: 0,
+      ),
     ])['p']!;
     expect(sf.atBats, 0);
     expect(sf.plateAppearances, 1);
@@ -28,10 +43,7 @@ void main() {
   });
 
   test('slowpitch has no sacrifice bunt', () {
-    expect(
-      PaResult.values.map((r) => r.wire),
-      isNot(contains('sacrifice')),
-    );
+    expect(PaResult.values.map((r) => r.wire), isNot(contains('sacrifice')));
   });
 
   test('ROE, FC, K, out are AB not hits', () {
@@ -51,7 +63,12 @@ void main() {
 
   test('homer counts as a hit and four total bases', () {
     final line = agg.rollup([
-      const PaInput(playerId: 'p', result: PaResult.homer, rbi: 1, runsScored: 1),
+      const PaInput(
+        playerId: 'p',
+        result: PaResult.homer,
+        rbi: 1,
+        runsScored: 1,
+      ),
     ])['p']!;
     expect(line.homeRuns, 1);
     expect(line.hits, 1);

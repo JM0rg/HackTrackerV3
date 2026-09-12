@@ -1,4 +1,3 @@
-import '../../helpers/connectivity_mock.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +13,6 @@ import 'package:hacktracker/features/premium/data/plan_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  setUpAll(mockConnectivity);
   testWidgets('Games is a primary tab and plan preview lives in settings', (
     tester,
   ) async {

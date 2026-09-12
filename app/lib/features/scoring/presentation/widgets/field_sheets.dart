@@ -48,11 +48,21 @@ Future<T?> _sheet<T>(BuildContext context, WidgetBuilder builder) {
 }
 
 class _Frame extends StatelessWidget {
-  const _Frame({required this.title, this.subtitle, required this.children});
+  const _Frame({
+    super.key,
+    required this.title,
+    this.subtitle,
+    required this.children,
+    this.fill = false,
+  });
 
   final String title;
   final String? subtitle;
   final List<Widget> children;
+
+  /// Take the whole of a box sized by something else, with the title where
+  /// it always is and [children] at the bottom, rather than sizing to fit.
+  final bool fill;
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +78,7 @@ class _Frame extends StatelessWidget {
           spacing.md,
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Center(
@@ -95,6 +105,7 @@ class _Frame extends StatelessWidget {
                 ),
               ),
             SizedBox(height: spacing.sm),
+            if (fill) const Spacer(),
             ...children,
           ],
         ),
@@ -680,33 +691,104 @@ class _LogSheet extends ConsumerWidget {
   }
 }
 
-enum GameMenuAction { endGame, editLineup, boxScore, switchScope, sprayChart }
+enum GameMenuAction {
+  endGame,
+  editLineup,
+  boxScore,
+  switchScope,
+  sprayChart,
+  handoff,
+  discard,
+}
 
 Future<GameMenuAction?> showGameMenu(
   BuildContext context,
   FieldModeState state,
 ) {
-  return _sheet<GameMenuAction>(context, (ctx) {
-    final field = ctx.colors.field;
-    Widget item(IconData icon, String title, GameMenuAction action) {
+  return _sheet<GameMenuAction>(context, (ctx) => _GameMenu(state: state));
+}
+
+/// The game's own menu. Ending a game is reversible; discarding one is not,
+/// so discard asks first — in this same sheet, which turns into the question
+/// rather than opening a second box over it.
+class _GameMenu extends StatefulWidget {
+  const _GameMenu({required this.state});
+
+  final FieldModeState state;
+
+  @override
+  State<_GameMenu> createState() => _GameMenuState();
+}
+
+class _GameMenuState extends State<_GameMenu> {
+  bool _confirming = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final field = context.colors.field;
+    final state = widget.state;
+
+    Widget item(
+      IconData icon,
+      String title,
+      GameMenuAction action, {
+      Key? key,
+      bool danger = false,
+      VoidCallback? onTap,
+    }) {
+      final tone = danger ? field.onOut : field.on;
       return ListTile(
-        onTap: () => Navigator.pop(ctx, action),
+        key: key,
+        onTap: onTap ?? () => Navigator.pop(context, action),
         contentPadding: EdgeInsets.zero,
-        leading: Icon(icon, color: field.muted),
+        leading: Icon(icon, color: danger ? field.onOut : field.muted),
         title: Text(
           title,
-          style: ctx.text.bodyLarge?.copyWith(color: field.on),
+          style: context.text.bodyLarge?.copyWith(color: tone),
         ),
       );
     }
 
-    return _Frame(
+    final fade = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 160);
+
+    final confirm = _Frame(
+      key: const Key('menu-confirm'),
+      fill: true,
+      title: 'Discard this game?',
+      subtitle: state.replay.pas.isEmpty
+          ? 'Nothing has been scored in it.'
+          : '${state.replay.pas.length} '
+                'at-bat${state.replay.pas.length == 1 ? '' : 's'} '
+                'go with it. This cannot be undone.',
+      children: [
+        item(
+          Icons.delete_outline,
+          'Discard game',
+          GameMenuAction.discard,
+          key: const Key('menu-discard-confirm'),
+          danger: true,
+        ),
+        item(
+          Icons.arrow_back,
+          'Keep it',
+          GameMenuAction.discard,
+          key: const Key('menu-discard-keep'),
+          onTap: () => setState(() => _confirming = false),
+        ),
+      ],
+    );
+    final menu = _Frame(
+      key: const Key('menu-list'),
       title: 'Game',
       children: [
         item(Icons.scatter_plot, 'Spray chart', GameMenuAction.sprayChart),
         item(Icons.table_chart_outlined, 'Box score', GameMenuAction.boxScore),
-        if (!state.personal)
+        if (!state.personal) ...[
           item(Icons.list_alt, 'Edit lineup', GameMenuAction.editLineup),
+          item(Icons.swap_horiz, 'Hand off the phone', GameMenuAction.handoff),
+        ],
         if (state.personal)
           item(
             Icons.swap_horiz,
@@ -714,7 +796,44 @@ Future<GameMenuAction?> showGameMenu(
             GameMenuAction.switchScope,
           ),
         item(Icons.flag_outlined, 'End game', GameMenuAction.endGame),
+        item(
+          Icons.delete_outline,
+          'Discard game',
+          GameMenuAction.discard,
+          key: const Key('menu-discard'),
+          danger: true,
+          onTap: () => setState(() => _confirming = true),
+        ),
       ],
     );
-  });
+
+    // The menu always sets the size of the sheet, even while it is hidden, so
+    // turning it into the question never moves anything: the question is laid
+    // over the same box and fades in. Swapping one for the other resized the
+    // sheet twice per tap — once as both were stacked, once as the old left.
+    return Stack(
+      children: [
+        ExcludeSemantics(
+          excluding: _confirming,
+          child: IgnorePointer(
+            ignoring: _confirming,
+            child: AnimatedOpacity(
+              duration: fade,
+              opacity: _confirming ? 0 : 1,
+              child: menu,
+            ),
+          ),
+        ),
+        if (_confirming)
+          Positioned.fill(
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: fade,
+              builder: (context, t, child) => Opacity(opacity: t, child: child),
+              child: confirm,
+            ),
+          ),
+      ],
+    );
+  }
 }

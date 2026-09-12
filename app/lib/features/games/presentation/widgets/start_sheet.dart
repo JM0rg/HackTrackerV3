@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hacktracker/core/di/repository_providers.dart';
@@ -7,6 +8,7 @@ import 'package:hacktracker/core/widgets/app_widgets.dart';
 import 'package:hacktracker/core/widgets/surfaces.dart';
 import 'package:hacktracker/database/app_database.dart';
 import 'package:hacktracker/features/me/presentation/widgets/personal_team_picker.dart';
+import 'package:intl/intl.dart';
 
 /// Start a game from one sheet. Every choice is a chip that remembers what
 /// you said last time, so a repeat game is two taps from the tab.
@@ -35,6 +37,10 @@ class _PersonalStartSheet extends ConsumerStatefulWidget {
 class _PersonalStartSheetState extends ConsumerState<_PersonalStartSheet> {
   String _scope = GameScope.bat;
   String _homeAway = 'home';
+
+  /// Null until the scorer says otherwise: the game starts when it is started.
+  DateTime? _startsAt;
+  String? _park;
   String? _teamId;
   String? _teamName;
   String? _opponent;
@@ -77,6 +83,22 @@ class _PersonalStartSheetState extends ConsumerState<_PersonalStartSheet> {
     setState(() => _opponent = name.trim().isEmpty ? null : name.trim());
   }
 
+  Future<void> _pickStart() async {
+    final picked = await showStartPicker(context, initial: _startsAt);
+    if (picked == null) return;
+    setState(() => _startsAt = picked.at);
+  }
+
+  Future<void> _pickPark() async {
+    final park = await showTextPrompt(
+      context,
+      title: 'Location',
+      initial: _park,
+    );
+    if (park == null) return;
+    setState(() => _park = park.trim().isEmpty ? null : park.trim());
+  }
+
   Future<void> _start() async {
     final id = await ref
         .read(meRepositoryProvider)
@@ -86,6 +108,8 @@ class _PersonalStartSheetState extends ConsumerState<_PersonalStartSheet> {
           playedForTeamId: _teamId,
           scope: _scope,
           homeAway: _homeAway,
+          startsAt: _startsAt,
+          park: _park,
         );
     if (mounted) Navigator.pop(context, id);
   }
@@ -139,6 +163,23 @@ class _PersonalStartSheetState extends ConsumerState<_PersonalStartSheet> {
             ),
           ],
         ),
+        SizedBox(height: spacing.md),
+        SettingsGroup(
+          children: [
+            SettingsRow(
+              key: const Key('row-starts'),
+              title: 'Starts',
+              value: startLabel(_startsAt),
+              onTap: _pickStart,
+            ),
+            SettingsRow(
+              key: const Key('row-park'),
+              title: 'Location',
+              value: _park ?? 'Add',
+              onTap: _pickPark,
+            ),
+          ],
+        ),
         SizedBox(height: spacing.lg),
         SizedBox(
           height: 54,
@@ -169,6 +210,9 @@ class _TeamStartSheetState extends ConsumerState<_TeamStartSheet> {
   String? _opponentId;
   String? _opponentName;
   String? _park;
+
+  /// Null until the scorer says otherwise: the game starts when it is started.
+  DateTime? _startsAt;
   Set<String> _competitionIds = {};
   int _lineupFromLast = 0;
   bool _loaded = false;
@@ -251,9 +295,19 @@ class _TeamStartSheetState extends ConsumerState<_TeamStartSheet> {
   }
 
   Future<void> _pickPark() async {
-    final park = await showTextPrompt(context, title: 'Park', initial: _park);
+    final park = await showTextPrompt(
+      context,
+      title: 'Location',
+      initial: _park,
+    );
     if (park == null) return;
     setState(() => _park = park.trim().isEmpty ? null : park.trim());
+  }
+
+  Future<void> _pickStart() async {
+    final picked = await showStartPicker(context, initial: _startsAt);
+    if (picked == null) return;
+    setState(() => _startsAt = picked.at);
   }
 
   Future<void> _start() async {
@@ -263,7 +317,8 @@ class _TeamStartSheetState extends ConsumerState<_TeamStartSheet> {
           teamId: widget.teamId,
           opponentId: _opponentId,
           park: _park,
-          startsAt: DateTime.now(),
+          // When the scorer says it started, or else the moment they did.
+          startsAt: (_startsAt ?? DateTime.now()).toUtc(),
           homeAway: _homeAway,
           competitionIds: _competitionIds.toList(),
         );
@@ -321,8 +376,14 @@ class _TeamStartSheetState extends ConsumerState<_TeamStartSheet> {
               onTap: _pickCompetitions,
             ),
             SettingsRow(
+              key: const Key('row-starts'),
+              title: 'Starts',
+              value: startLabel(_startsAt),
+              onTap: _pickStart,
+            ),
+            SettingsRow(
               key: const Key('row-park'),
-              title: 'Park',
+              title: 'Location',
               value: _park ?? 'Add',
               onTap: _pickPark,
             ),
@@ -513,6 +574,96 @@ class _TextPromptState extends State<_TextPrompt> {
       ],
     );
   }
+}
+
+// ------------------------------------------------------------- when & where
+
+/// When a game started, or null for "the moment it is started in the app".
+/// One wheel for the day and the time, the way iOS asks, and a way back to now.
+Future<({DateTime? at})?> showStartPicker(
+  BuildContext context, {
+  DateTime? initial,
+}) {
+  return showModalBottomSheet<({DateTime? at})>(
+    context: context,
+    useSafeArea: true,
+    builder: (_) => _StartPicker(initial: initial),
+  );
+}
+
+class _StartPicker extends StatefulWidget {
+  const _StartPicker({this.initial});
+
+  final DateTime? initial;
+
+  @override
+  State<_StartPicker> createState() => _StartPickerState();
+}
+
+class _StartPickerState extends State<_StartPicker> {
+  late DateTime _at = widget.initial ?? DateTime.now();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return _Frame(
+      title: 'Starts',
+      children: [
+        SizedBox(
+          height: 200,
+          child: CupertinoTheme(
+            data: CupertinoThemeData(
+              brightness: Theme.of(context).brightness,
+              textTheme: CupertinoTextThemeData(
+                dateTimePickerTextStyle: context.text.titleMedium?.copyWith(
+                  color: colors.text,
+                ),
+              ),
+            ),
+            child: CupertinoDatePicker(
+              key: const Key('start-wheel'),
+              initialDateTime: _at,
+              // Games get logged after the fact, but never before they happen
+              // by more than a day.
+              maximumDate: DateTime.now().add(const Duration(days: 1)),
+              minuteInterval: 1,
+              use24hFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+              onDateTimeChanged: (v) => _at = v,
+            ),
+          ),
+        ),
+        SizedBox(height: context.themeSpacing.sm),
+        Row(
+          children: [
+            Expanded(
+              child: TextButton(
+                key: const Key('start-now'),
+                onPressed: () => Navigator.pop(context, (at: null)),
+                child: const Text('Use now'),
+              ),
+            ),
+            Expanded(
+              child: AppButton(
+                key: const Key('start-set'),
+                label: 'Set',
+                onPressed: () => Navigator.pop(context, (at: _at)),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// How a start time reads in a row: "Now" until one is set.
+String startLabel(DateTime? at, {DateTime? now}) {
+  if (at == null) return 'Now';
+  final clock = now ?? DateTime.now();
+  final today =
+      at.year == clock.year && at.month == clock.month && at.day == clock.day;
+  final time = DateFormat.jm().format(at);
+  return today ? 'Today, $time' : '${DateFormat.MMMd().format(at)}, $time';
 }
 
 // --------------------------------------------------------------- pieces

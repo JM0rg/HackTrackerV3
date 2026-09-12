@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -105,62 +104,6 @@ class AppCard extends StatelessWidget {
   }
 }
 
-class OfflineBanner extends StatefulWidget {
-  const OfflineBanner({super.key});
-
-  @override
-  State<OfflineBanner> createState() => _OfflineBannerState();
-}
-
-class _OfflineBannerState extends State<OfflineBanner> {
-  var _online = true;
-  StreamSubscription<List<ConnectivityResult>>? _sub;
-
-  @override
-  void initState() {
-    super.initState();
-    final connectivity = Connectivity();
-    connectivity.checkConnectivity().then((results) {
-      if (mounted) {
-        setState(() {
-          _online = results.any((r) => r != ConnectivityResult.none);
-        });
-      }
-    });
-    _sub = connectivity.onConnectivityChanged.listen((results) {
-      if (mounted) {
-        setState(() {
-          _online = results.any((r) => r != ConnectivityResult.none);
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _sub?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_online) return const SizedBox.shrink();
-    return ColoredBox(
-      color: context.colors.danger,
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: context.themeSpacing.xs),
-        child: Text(
-          'Offline — scoring is saved on this device',
-          style: context.text.labelMedium?.copyWith(
-            color: context.colors.fieldOn,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-}
-
 class AppScaffold extends StatelessWidget {
   const AppScaffold({
     super.key,
@@ -198,12 +141,7 @@ class AppScaffold extends StatelessWidget {
         actions: actions,
         leading: leading,
       ),
-      body: Column(
-        children: [
-          const OfflineBanner(),
-          Expanded(child: body),
-        ],
-      ),
+      body: body,
       floatingActionButton: floatingActionButton,
       bottomNavigationBar: bottom,
     );

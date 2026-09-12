@@ -20,11 +20,9 @@ import 'package:hacktracker/features/scoring/presentation/widgets/contact_field.
 import 'package:hacktracker/features/stats/presentation/screens/spray_chart_screen.dart';
 import 'package:uuid/uuid.dart';
 import '../../helpers/test_fonts.dart';
-import '../../helpers/connectivity_mock.dart';
 
 void main() {
   setUpAll(() async {
-    mockConnectivity();
     await loadTestFonts();
   });
   test('normalized points, legacy regions and malformed locations', () {
@@ -80,6 +78,13 @@ void main() {
     bool light = false,
     bool premium = true,
   }) async {
+    // Unmount even when the test fails. Drift keeps a timer for every live
+    // stream, and a test that throws before its own finish() would otherwise
+    // leave one pending and hang teardown instead of reporting.
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 1));
+    });
     if (screen is FieldModeScreen) {
       final game = (await scoring.game(screen.gameId))!;
       if (game.scoringDraft == null) {

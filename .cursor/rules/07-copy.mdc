@@ -46,6 +46,18 @@ No benefits, no adjectives, no taglines, no "Optional:", no explaining why a
 feature is worth using. If a feature needs a sentence to justify it, the
 problem is the feature.
 
+## Never narrate the machinery
+
+Connectivity, syncing, saving, loading, caching: if the person cannot act on
+it and nothing they did is at risk, it is not their business. Working locally
+is the product, not a fault to apologise for. Speak only when something needs
+them — a change that failed and will not retry, work that would be lost.
+
+- ✗ "Offline — scoring is saved on this device"
+- ✗ "Syncing…" on every screen
+- ✓ Silence while it works; one plain line in the one place it matters when it
+  does not.
+
 ## A control says what happens
 
 The label names the outcome, and the next screen delivers it.
@@ -60,3 +72,5 @@ The label names the outcome, and the next screen delivers it.
 3. Does it describe a gesture, a tap, or a number of steps? Cut it, unless it
    is the transient gesture hint above.
 4. Is it selling? Cut it.
+5. Is it reporting on the app's own plumbing? Cut it, unless the person has to
+   do something about it.

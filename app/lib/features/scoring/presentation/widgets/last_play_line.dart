@@ -19,8 +19,13 @@ class LastPlayLine extends StatelessWidget {
   final VoidCallback? onUndo;
   final ValueChanged<ReplayedPa>? onFix;
 
-  /// "Mike singled", "Jess flied out". When it is you, just the play.
-  static String describe(FieldModeState state, ReplayedPa pa) {
+  /// "Mike singled", "Jess flied out". When it is you, just the play. With
+  /// [named] off, just the verb: for a log that already shows the name.
+  static String describe(
+    FieldModeState state,
+    ReplayedPa pa, {
+    bool named = true,
+  }) {
     final r = pa.effective;
     final String play;
     if (state.personal) {
@@ -50,7 +55,7 @@ class LastPlayLine extends StatelessWidget {
         PaResult.fieldersChoice => "reached on a fielder's choice",
         PaResult.reachOnError => 'reached on an error',
       };
-      play = '$who $verb';
+      play = named ? '$who $verb' : verb;
     }
     final extra = <String>[];
     if (state.personal) {
@@ -59,6 +64,10 @@ class LastPlayLine extends StatelessWidget {
     } else if (pa.runs > 0) {
       extra.add('${pa.runs} run${pa.runs == 1 ? '' : 's'}');
     }
+    // On an out the verb already carries it ("flied out"); on a hit it does
+    // not, so the ball gets named.
+    final kind = pa.outKind;
+    if (kind != null && !r.recordsOut) extra.add(kind.label);
     final location = ContactLocation.parse(pa.hitLocation);
     if (location?.located == true) extra.add(location!.sprayRegion!);
     return [play, ...extra].join(' · ');
@@ -74,80 +83,77 @@ class LastPlayLine extends StatelessWidget {
     final muted = context.text.bodySmall?.copyWith(color: field.muted);
 
     if (pa == null) {
-      final text = state.newestIsTheirHalf
-          ? 'Their half is in the book'
-          : 'First batter of the game';
+      if (state.newestIsTheirHalf) {
+        return SizedBox(
+          height: 44,
+          child: Center(
+            child: TextButton.icon(
+              onPressed: onUndo,
+              icon: Icon(Icons.undo, size: 18, color: field.muted),
+              label: Text('Their half is in the book', style: muted),
+            ),
+          ),
+        );
+      }
+      // A team game is scored batter by batter, so the order is known. A
+      // personal game only ever sees your own trips to the plate, and the
+      // first of them is not the first of the game.
       return SizedBox(
         height: 44,
         child: Center(
-          child: state.newestIsTheirHalf
-              ? TextButton.icon(
-                  onPressed: onUndo,
-                  icon: Icon(Icons.undo, size: 18, color: field.muted),
-                  label: Text(text, style: muted),
-                )
-              : Text(text, style: muted),
+          child: state.personal
+              ? const SizedBox.shrink()
+              : Text('First batter of the game', style: muted),
         ),
       );
     }
-    return Container(
-      height: 44,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          IconButton(
-            key: const Key('undo'),
-            onPressed: onUndo,
-            tooltip: 'Undo',
-            icon: const Icon(Icons.undo_rounded, size: 20),
-            color: field.on,
-            style: IconButton.styleFrom(backgroundColor: field.surfaceHigh),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: InkWell(
-              key: const Key('last-play'),
-              onTap: onFix == null ? null : () => onFix!(pa),
-              borderRadius: BorderRadius.circular(12),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          (pa.effective.recordsOut ? field.onOut : field.accent)
-                              .withValues(alpha: .12),
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                    child: Text(
-                      pa.effective.label,
-                      style: context.text.labelMedium?.copyWith(
-                        color: pa.effective.recordsOut
-                            ? field.onOut
-                            : field.accent,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      describe(state, pa),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: muted,
-                    ),
-                  ),
-                  if (onFix != null)
-                    Icon(Icons.edit_outlined, color: field.muted, size: 16),
-                ],
+    // A line in the dugout, not a box: undo, the play, and the way to fix it.
+    return InkWell(
+      key: const Key('last-play'),
+      onTap: onFix == null ? null : () => onFix!(pa),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            IconButton(
+              key: const Key('undo'),
+              onPressed: onUndo,
+              tooltip: 'Undo',
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.undo_rounded, size: 18),
+              color: field.on,
+              style: IconButton.styleFrom(backgroundColor: field.surfaceHigh),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: (pa.effective.recordsOut ? field.onOut : field.accent)
+                    .withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(7),
+              ),
+              child: Text(
+                pa.effective.label,
+                style: context.text.labelMedium?.copyWith(
+                  color: pa.effective.recordsOut ? field.onOut : field.accent,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                describe(state, pa),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: muted,
+              ),
+            ),
+            if (onFix != null)
+              Icon(Icons.edit_outlined, color: field.muted, size: 15),
+          ],
+        ),
       ),
     );
   }

@@ -43,10 +43,12 @@ class SyncEngine {
   }
 
   Future<void> _pull(String table) async {
-    final cursorRow = await (_db.select(_db.localSyncCursors)
-          ..where((t) => t.cursorTable.equals(table)))
-        .getSingleOrNull();
-    final cursor = cursorRow?.cursor ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+    final cursorRow = await (_db.select(
+      _db.localSyncCursors,
+    )..where((t) => t.cursorTable.equals(table))).getSingleOrNull();
+    final cursor =
+        cursorRow?.cursor ??
+        DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
     final remote = await _client
         .from(table)
         .select()
@@ -55,7 +57,9 @@ class SyncEngine {
     for (final raw in remote as List<dynamic>) {
       await _applyRemote(table, Map<String, dynamic>.from(raw as Map));
     }
-    await _db.into(_db.localSyncCursors).insertOnConflictUpdate(
+    await _db
+        .into(_db.localSyncCursors)
+        .insertOnConflictUpdate(
           LocalSyncCursorsCompanion.insert(
             cursorTable: table,
             cursor: DateTime.now().toUtc(),
@@ -66,7 +70,9 @@ class SyncEngine {
   Future<List<Map<String, dynamic>>> _dirty(String table) async {
     switch (table) {
       case 'teams':
-        final rows = await (_db.select(_db.teams)..where((t) => t.syncState.equals(1))).get();
+        final rows = await (_db.select(
+          _db.teams,
+        )..where((t) => t.syncState.equals(1))).get();
         return [
           for (final r in rows)
             {
@@ -87,21 +93,29 @@ class SyncEngine {
   Future<void> _applyRemote(String table, Map<String, dynamic> row) async {
     if (table != 'teams') return;
     final id = row['id'] as String;
-    final local = await (_db.select(_db.teams)..where((t) => t.id.equals(id))).getSingleOrNull();
+    final local = await (_db.select(
+      _db.teams,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
     final remoteUpdated = DateTime.parse(row['updated_at'] as String);
     if (local != null && local.updatedAt.isAfter(remoteUpdated)) return;
-    await _db.into(_db.teams).insertOnConflictUpdate(
+    await _db
+        .into(_db.teams)
+        .insertOnConflictUpdate(
           TeamsCompanion.insert(
             id: id,
             name: row['name'] as String,
             type: Value(row['type'] as String? ?? 'mens'),
-            settings: Value(row['settings'] is String
-                ? row['settings'] as String
-                : (row['settings']?.toString() ?? defaultTeamSettings)),
+            settings: Value(
+              row['settings'] is String
+                  ? row['settings'] as String
+                  : (row['settings']?.toString() ?? defaultTeamSettings),
+            ),
             createdAt: DateTime.parse(row['created_at'] as String),
             updatedAt: remoteUpdated,
             deletedAt: Value(
-              row['deleted_at'] == null ? null : DateTime.parse(row['deleted_at'] as String),
+              row['deleted_at'] == null
+                  ? null
+                  : DateTime.parse(row['deleted_at'] as String),
             ),
             syncState: const Value(0),
           ),

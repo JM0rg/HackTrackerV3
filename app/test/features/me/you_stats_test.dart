@@ -17,7 +17,8 @@ void main() {
     String personId = me,
   }) {
     return YouPaRow(
-      personId: personId, gameId: 'g',
+      personId: personId,
+      gameId: 'g',
       gameKind: kind,
       teamId: teamId,
       result: result,
@@ -51,15 +52,18 @@ void main() {
     expect(line.homeRuns, 0);
   });
 
-  test('Team filter is isolated and does not include the other roster slot', () {
-    final a = youPaInputs(rows, const YouFilter.team(teamA), me);
-    expect(const StatsAggregator().rollup(a)[me]!.homeRuns, 1);
-    expect(const StatsAggregator().rollup(a)[me]!.plateAppearances, 1);
+  test(
+    'Team filter is isolated and does not include the other roster slot',
+    () {
+      final a = youPaInputs(rows, const YouFilter.team(teamA), me);
+      expect(const StatsAggregator().rollup(a)[me]!.homeRuns, 1);
+      expect(const StatsAggregator().rollup(a)[me]!.plateAppearances, 1);
 
-    final b = youPaInputs(rows, const YouFilter.team(teamB), me);
-    expect(const StatsAggregator().rollup(b)[me]!.doubles, 1);
-    expect(const StatsAggregator().rollup(b)[me]!.homeRuns, 0);
-  });
+      final b = youPaInputs(rows, const YouFilter.team(teamB), me);
+      expect(const StatsAggregator().rollup(b)[me]!.doubles, 1);
+      expect(const StatsAggregator().rollup(b)[me]!.homeRuns, 0);
+    },
+  );
 
   test('teammate PAs never enter the You line', () {
     final inputs = youPaInputs(rows, const YouFilter.all(), me);

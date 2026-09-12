@@ -21,7 +21,9 @@ class ThemeModeController extends Notifier<ThemeMode> {
 
   Future<void> setMode(ThemeMode mode) async {
     state = mode;
-    await ref.read(sharedPreferencesProvider).setString(_themeModeKey, mode.name);
+    await ref
+        .read(sharedPreferencesProvider)
+        .setString(_themeModeKey, mode.name);
   }
 
   /// Dark is the design: a sports app under lights. Light exists and follows

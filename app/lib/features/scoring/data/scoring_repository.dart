@@ -169,6 +169,15 @@ class ScoringRepository {
             )
             .encode();
       }
+      // An out that drives in a run is a sacrifice unless it was a grounder.
+      // One rule decides that, whether the runs arrive now or in a correction.
+      final out = result == PaResult.out
+          ? _resolveOut(
+              kind: outKind,
+              runScored: (runsOnPlay ?? 0) > 0,
+              runsOnPlay: runsOnPlay,
+            )
+          : null;
       final now = _now();
       await _db
           .into(_db.plateAppearances)
@@ -184,9 +193,11 @@ class ScoringRepository {
               sequence: await _nextSequence(live.id),
               inning: live.currentInning,
               inningHalf: live.currentHalf,
-              result: result.wire,
-              outKind: Value(outKind?.wire),
-              runsOnPlay: Value(runsOnPlay),
+              result: out?.result.value ?? result.wire,
+              outKind: Value(out != null ? out.outKind.value : outKind?.wire),
+              runsOnPlay: Value(
+                out != null ? out.runsOnPlay.value : runsOnPlay,
+              ),
               hitLocation: Value(hitLocation),
               qualityOfContact: Value(qualityOfContact),
               fielderPlayerId: Value(fielderPlayerId),
@@ -586,6 +597,69 @@ class ScoringRepository {
         GamesCompanion(
           status: const Value('live'),
           updatedAt: Value(_now()),
+          syncState: const Value(1),
+        ),
+      );
+    });
+  }
+
+  /// Throws the whole game away: the game and everything recorded against it.
+  /// Soft, like every other delete here, so it syncs; and every list and every
+  /// stat already reads past a deleted game, so it leaves no trace in either.
+  Future<void> discardGame(Game game) async {
+    return _db.transaction(() async {
+      final now = _now();
+      final id = game.id;
+      await (_db.update(
+        _db.plateAppearances,
+      )..where((t) => t.gameId.equals(id) & t.deletedAt.isNull())).write(
+        PlateAppearancesCompanion(
+          deletedAt: Value(now),
+          updatedAt: Value(now),
+          syncState: const Value(1),
+        ),
+      );
+      await (_db.update(
+        _db.gameEvents,
+      )..where((t) => t.gameId.equals(id) & t.deletedAt.isNull())).write(
+        GameEventsCompanion(
+          deletedAt: Value(now),
+          updatedAt: Value(now),
+          syncState: const Value(1),
+        ),
+      );
+      await (_db.update(
+        _db.gameInnings,
+      )..where((t) => t.gameId.equals(id) & t.deletedAt.isNull())).write(
+        GameInningsCompanion(
+          deletedAt: Value(now),
+          updatedAt: Value(now),
+          syncState: const Value(1),
+        ),
+      );
+      await (_db.update(
+        _db.lineupSlots,
+      )..where((t) => t.gameId.equals(id) & t.deletedAt.isNull())).write(
+        LineupSlotsCompanion(
+          deletedAt: Value(now),
+          updatedAt: Value(now),
+          syncState: const Value(1),
+        ),
+      );
+      await (_db.update(
+        _db.gameCompetitions,
+      )..where((t) => t.gameId.equals(id) & t.deletedAt.isNull())).write(
+        GameCompetitionsCompanion(
+          deletedAt: Value(now),
+          updatedAt: Value(now),
+          syncState: const Value(1),
+        ),
+      );
+      await (_db.update(_db.games)..where((t) => t.id.equals(id))).write(
+        GamesCompanion(
+          deletedAt: Value(now),
+          updatedAt: Value(now),
+          scoringDraft: const Value(null),
           syncState: const Value(1),
         ),
       );

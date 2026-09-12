@@ -20,7 +20,6 @@ dependencies:
   uuid: ^4.5.1
   share_plus: ^11.1.0
   intl: ^0.20.2
-  connectivity_plus: ^6.1.5
   collection: ^1.19.1
   sqlite3_flutter_libs: 0.5.41
   shared_preferences: ^2.5.3

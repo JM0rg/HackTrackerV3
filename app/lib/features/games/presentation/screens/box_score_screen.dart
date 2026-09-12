@@ -27,7 +27,11 @@ class BoxScoreScreen extends ConsumerWidget {
       title: 'Box score',
       leading: homeLeading(context),
       actions: [
-        IconButton(tooltip:'Spray chart',icon:const Icon(Icons.scatter_plot),onPressed:()=>context.push('/spray?game=$gameId')),
+        IconButton(
+          tooltip: 'Spray chart',
+          icon: const Icon(Icons.scatter_plot),
+          onPressed: () => context.push('/spray?game=$gameId'),
+        ),
         IconButton(
           tooltip: 'Share',
           icon: const Icon(Icons.ios_share),

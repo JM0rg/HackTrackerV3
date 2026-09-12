@@ -783,4 +783,58 @@ void main() {
       expect((await scoring.plateAppearances(id)).single.rbi, 1);
     });
   });
+
+  group('discarding a game', () {
+    test('takes the game and everything recorded in it', () async {
+      final (teamId, gameId, _) = await teamGame();
+      Future<Game> live() async => (await tracker.game(gameId))!;
+      await scoring.recordPa(game: await live(), result: PaResult.double);
+      await scoring.recordPa(game: await live(), result: PaResult.out);
+
+      await scoring.discardGame(await live());
+
+      final game = (await tracker.game(gameId))!;
+      expect(game.deletedAt, isNotNull);
+      expect(game.syncState, 1, reason: 'the delete has to sync');
+      expect(game.scoringDraft, isNull);
+      for (final (table, rows) in [
+        (
+          'plate_appearances',
+          await (db.select(
+            db.plateAppearances,
+          )..where((t) => t.gameId.equals(gameId))).get(),
+        ),
+        (
+          'lineup_slots',
+          await (db.select(
+            db.lineupSlots,
+          )..where((t) => t.gameId.equals(gameId))).get(),
+        ),
+      ]) {
+        expect(rows, isNotEmpty, reason: table);
+        for (final row in rows) {
+          expect((row as dynamic).deletedAt, isNotNull, reason: table);
+        }
+      }
+
+      // Gone from the team's games, and so from every list built on them.
+      expect(await tracker.watchGames(teamId).first, isEmpty);
+    });
+
+    test('leaves no trace in a player\'s numbers', () async {
+      await me.ensureMe();
+      final kept = await me.createPersonalGame(opponentName: 'Reds');
+      Future<Game> g(String id) async => (await tracker.game(id))!;
+      await scoring.recordPa(game: await g(kept), result: PaResult.single);
+
+      final binned = await me.createPersonalGame(opponentName: 'Rockets');
+      await scoring.recordPa(game: await g(binned), result: PaResult.homer);
+      await scoring.recordPa(game: await g(binned), result: PaResult.homer);
+
+      await scoring.discardGame(await g(binned));
+
+      final games = await me.watchMyGames().first;
+      expect(games.map((x) => x.id), [kept]);
+    });
+  });
 }

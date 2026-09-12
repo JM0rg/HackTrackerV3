@@ -118,7 +118,9 @@ final fieldModeProvider = Provider.family<AsyncValue<FieldModeState?>, String>((
     return AsyncValue.error(error.error!, error.stackTrace ?? StackTrace.empty);
   }
 
-  final game = gameAsync.valueOrNull;
+  // A discarded game is gone, whoever still has its id.
+  final raw = gameAsync.valueOrNull;
+  final game = raw?.deletedAt == null ? raw : null;
   final slots = slotsAsync.valueOrNull;
   final roster = rosterAsync.valueOrNull;
   final pas = pasAsync.valueOrNull;
@@ -128,7 +130,7 @@ final fieldModeProvider = Provider.family<AsyncValue<FieldModeState?>, String>((
       roster == null ||
       pas == null ||
       events == null) {
-    if (gameAsync.hasValue && gameAsync.valueOrNull == null) {
+    if (gameAsync.hasValue && game == null) {
       return const AsyncValue.data(null);
     }
     return const AsyncValue.loading();

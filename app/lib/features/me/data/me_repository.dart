@@ -260,6 +260,8 @@ class MeRepository {
     String scope = GameScope.bat,
     bool trackContact = false,
     String homeAway = 'home',
+    DateTime? startsAt,
+    String? park,
   }) async {
     final me = await ensureMe();
     final batter = await _ensurePersonalPlayer(me);
@@ -285,7 +287,9 @@ class MeRepository {
             opponentName: Value(clean(opponentName)),
             playedForName: Value(clean(playedForName)),
             playedForTeamId: Value(playedForTeamId),
-            startsAt: Value(now),
+            // When the scorer says it started, or else the moment they did.
+            startsAt: Value(startsAt?.toUtc() ?? now),
+            park: Value(clean(park)),
             homeAway: Value(homeAway),
             currentHalf: Value(homeAway == 'home' ? 'top' : 'top'),
             createdAt: now,

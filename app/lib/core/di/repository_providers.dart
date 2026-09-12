@@ -8,7 +8,10 @@ import 'package:hacktracker/features/scoring/data/scoring_repository.dart';
 import 'package:hacktracker/features/teams/data/tracker_repository.dart';
 
 final trackerRepositoryProvider = Provider<TrackerRepository>((ref) {
-  return TrackerRepository(ref.watch(databaseProvider), ref.watch(uuidProvider));
+  return TrackerRepository(
+    ref.watch(databaseProvider),
+    ref.watch(uuidProvider),
+  );
 });
 
 final meRepositoryProvider = Provider<MeRepository>((ref) {
@@ -16,35 +19,46 @@ final meRepositoryProvider = Provider<MeRepository>((ref) {
 });
 
 final scoringRepositoryProvider = Provider<ScoringRepository>((ref) {
-  return ScoringRepository(ref.watch(databaseProvider), ref.watch(uuidProvider));
+  return ScoringRepository(
+    ref.watch(databaseProvider),
+    ref.watch(uuidProvider),
+  );
 });
 
 final teamsStreamProvider = StreamProvider<List<Team>>((ref) {
   return ref.watch(trackerRepositoryProvider).watchTeams();
 });
 
-final playersStreamProvider =
-    StreamProvider.family<List<Player>, String>((ref, teamId) {
+final playersStreamProvider = StreamProvider.family<List<Player>, String>((
+  ref,
+  teamId,
+) {
   return ref.watch(trackerRepositoryProvider).watchPlayers(teamId);
 });
 
-final gamePlayersStreamProvider =
-    StreamProvider.family<List<Player>, String>((ref, gameId) {
+final gamePlayersStreamProvider = StreamProvider.family<List<Player>, String>((
+  ref,
+  gameId,
+) {
   return ref.watch(trackerRepositoryProvider).watchPlayersForGame(gameId);
 });
 
-final opponentsStreamProvider =
-    StreamProvider.family<List<Opponent>, String>((ref, teamId) {
+final opponentsStreamProvider = StreamProvider.family<List<Opponent>, String>((
+  ref,
+  teamId,
+) {
   return ref.watch(trackerRepositoryProvider).watchOpponents(teamId);
 });
 
 final competitionsStreamProvider =
     StreamProvider.family<List<Competition>, String>((ref, teamId) {
-  return ref.watch(trackerRepositoryProvider).watchCompetitions(teamId);
-});
+      return ref.watch(trackerRepositoryProvider).watchCompetitions(teamId);
+    });
 
-final gamesStreamProvider =
-    StreamProvider.family<List<Game>, String>((ref, teamId) {
+final gamesStreamProvider = StreamProvider.family<List<Game>, String>((
+  ref,
+  teamId,
+) {
   return ref.watch(trackerRepositoryProvider).watchGames(teamId);
 });
 
@@ -52,25 +66,30 @@ final gameStreamProvider = StreamProvider.family<Game?, String>((ref, id) {
   return ref.watch(trackerRepositoryProvider).watchGame(id);
 });
 
-final lineupStreamProvider =
-    StreamProvider.family<List<LineupSlot>, String>((ref, gameId) {
+final lineupStreamProvider = StreamProvider.family<List<LineupSlot>, String>((
+  ref,
+  gameId,
+) {
   return ref.watch(trackerRepositoryProvider).watchLineup(gameId);
 });
 
-final paStreamProvider =
-    StreamProvider.family<List<PlateAppearance>, String>((ref, gameId) {
+final paStreamProvider = StreamProvider.family<List<PlateAppearance>, String>((
+  ref,
+  gameId,
+) {
   return ref.watch(scoringRepositoryProvider).watchPlateAppearances(gameId);
 });
 
-final gameEventsStreamProvider =
-    StreamProvider.family<List<GameEvent>, String>((ref, gameId) {
-  return ref.watch(scoringRepositoryProvider).watchGameEvents(gameId);
-});
+final gameEventsStreamProvider = StreamProvider.family<List<GameEvent>, String>(
+  (ref, gameId) {
+    return ref.watch(scoringRepositoryProvider).watchGameEvents(gameId);
+  },
+);
 
 final gameInningsStreamProvider =
     StreamProvider.family<List<GameInning>, String>((ref, gameId) {
-  return ref.watch(scoringRepositoryProvider).watchInnings(gameId);
-});
+      return ref.watch(scoringRepositoryProvider).watchInnings(gameId);
+    });
 
 final meStreamProvider = StreamProvider<Person?>((ref) {
   return ref.watch(meRepositoryProvider).watchMe();
@@ -103,7 +122,8 @@ final liveGameProvider = Provider<Game?>((ref) {
 
 /// The newest team game still in progress.
 final teamLiveGameProvider = Provider.family<Game?, String>((ref, teamId) {
-  final games = ref.watch(gamesStreamProvider(teamId)).valueOrNull ?? const <Game>[];
+  final games =
+      ref.watch(gamesStreamProvider(teamId)).valueOrNull ?? const <Game>[];
   for (final game in games) {
     if (game.status == 'live') return game;
   }
@@ -114,7 +134,8 @@ final teamLiveGameProvider = Provider.family<Game?, String>((ref, teamId) {
 final myGameLinesProvider = Provider<Map<String, GameLine>>((ref) {
   final me = ref.watch(meStreamProvider).valueOrNull;
   if (me == null) return const {};
-  final rows = ref.watch(myPaRowsStreamProvider).valueOrNull ?? const <YouPaRow>[];
+  final rows =
+      ref.watch(myPaRowsStreamProvider).valueOrNull ?? const <YouPaRow>[];
   return gameLines(rows, me.id);
 });
 

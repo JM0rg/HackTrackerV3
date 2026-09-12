@@ -10,14 +10,17 @@ class BatterCard extends StatefulWidget {
   const BatterCard({
     super.key,
     required this.state,
-    required this.height,
+    this.height,
     required this.onUndo,
     required this.onNext,
     required this.onPrevious,
   });
 
   final FieldModeState state;
-  final double height;
+
+  /// Null inside the floating header, where the capsule takes its height from
+  /// what is in it.
+  final double? height;
   final VoidCallback? onUndo;
   final VoidCallback? onNext;
   final VoidCallback? onPrevious;
@@ -100,7 +103,7 @@ class _BatterCardState extends State<BatterCard> {
               child: KeyedSubtree(
                 key: ValueKey('batter-${state.batterIndex}-${batter?.id}'),
                 child: state.personal
-                    ? _YourDay(state: state, hero: !state.tracksScore)
+                    ? _YourDay(state: state)
                     : _Batter(state: state),
               ),
             ),
@@ -127,94 +130,101 @@ class _Batter extends StatelessWidget {
         ? 'No lineup'
         : '${batter.firstName} ${batter.lastName}'.trim();
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: field.surfaceHigh,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: field.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 52,
-            height: 60,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: field.accent.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Text(
-              jersey?.isNotEmpty == true
-                  ? jersey!
-                  : batter?.firstName.characters.firstOrNull ?? '—',
-              style: context.text.headlineSmall?.copyWith(
-                color: field.accent,
-                fontFeatures: tabularFigures,
-              ),
+    // A line in the dugout: no box, no label. The name under the plate is
+    // the batter; nothing needs to say so.
+    final next = state.onDeck;
+    return Row(
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: field.accent.withValues(alpha: .12),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Text(
+            jersey?.isNotEmpty == true
+                ? jersey!
+                : batter?.firstName.characters.firstOrNull ?? '—',
+            style: context.text.titleMedium?.copyWith(
+              color: field.accent,
+              fontWeight: FontWeight.w800,
+              fontFeatures: tabularFigures,
             ),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'AT BAT',
-                  style: context.text.labelSmall?.copyWith(
-                    color: field.accent,
-                    letterSpacing: 2,
-                    fontWeight: FontWeight.w700,
-                  ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                name,
+                key: const Key('card-first'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.text.titleLarge?.copyWith(
+                  color: field.on,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -.4,
                 ),
-                const SizedBox(height: 4),
+              ),
+              const SizedBox(height: 3),
+              if (batter == null || line == null)
                 Text(
-                  name,
-                  key: const Key('card-first'),
+                  'Pick a batting order to start',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: context.text.headlineSmall?.copyWith(
-                    color: field.on,
-                    fontSize: 24,
-                  ),
+                  style: context.text.bodySmall?.copyWith(color: field.muted),
+                )
+              else
+                _DayLine(
+                  hits: line.hits,
+                  atBats: line.atBats,
+                  results: line.results,
+                  rbi: state.replay.pas
+                      .where((p) => p.playerId == batter.id)
+                      .fold<int>(0, (a, p) => a + p.rbi),
+                  runs: null,
+                  size: 13.5,
                 ),
-                const SizedBox(height: 5),
-                if (batter == null || line == null)
-                  Text(
-                    'Pick a batting order to start',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.text.bodySmall?.copyWith(color: field.muted),
-                  )
-                else
-                  _DayLine(
-                    hits: line.hits,
-                    atBats: line.atBats,
-                    results: line.results,
-                    rbi: state.replay.pas
-                        .where((p) => p.playerId == batter.id)
-                        .fold<int>(0, (a, p) => a + p.rbi),
-                    runs: null,
-                    size: 14,
-                  ),
-              ],
-            ),
+            ],
+          ),
+        ),
+        if (next != null) ...[
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'next',
+                style: context.text.bodySmall?.copyWith(color: field.muted),
+              ),
+              Text(
+                next.firstName,
+                key: const Key('next-up'),
+                style: context.text.bodyMedium?.copyWith(
+                  color: field.on,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ],
-      ),
+      ],
     );
   }
 }
 
-/// Personal game: no name. Your day is the thing. With no score to show it
-/// is the biggest thing on the screen, and the opponent sits under it.
+/// Personal game keeping team score: your day, as a line in the dugout. With
+/// no team score the day is the scoreboard instead, and lives beyond the wall.
 class _YourDay extends StatelessWidget {
-  const _YourDay({required this.state, required this.hero});
+  const _YourDay({required this.state});
 
   final FieldModeState state;
-  final bool hero;
 
   @override
   Widget build(BuildContext context) {
@@ -224,62 +234,25 @@ class _YourDay extends StatelessWidget {
     final pas = state.replay.pas;
     final rbi = pas.fold<int>(0, (a, p) => a + p.rbi);
     final runs = pas.fold<int>(0, (a, p) => a + p.runsScored);
-    final opponent = state.game.opponentName?.trim();
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Row(
+      key: const Key('your-day'),
       children: [
-        Text(
-          'YOUR DAY',
-          key: const Key('your-day'),
-          style: context.text.labelSmall?.copyWith(
-            color: field.muted,
-            letterSpacing: 2.4,
-            fontSize: hero ? 11 : 10,
-            fontWeight: FontWeight.w600,
-          ),
+        Expanded(
+          child: line == null
+              ? Text(
+                  'Your first at-bat',
+                  style: context.text.titleMedium?.copyWith(color: field.on),
+                )
+              : _DayLine(
+                  hits: line.hits,
+                  atBats: line.atBats,
+                  results: line.results,
+                  rbi: rbi,
+                  runs: runs,
+                  size: 22,
+                ),
         ),
-        const SizedBox(height: 4),
-        if (line == null)
-          Text(
-            'Nothing yet',
-            style: context.text.headlineSmall?.copyWith(
-              color: field.on,
-              fontWeight: FontWeight.w700,
-            ),
-          )
-        else
-          _DayLine(
-            hits: line.hits,
-            atBats: line.atBats,
-            results: line.results,
-            rbi: rbi,
-            runs: runs,
-            size: hero ? 44 : 26,
-            splitCounts: true,
-          ),
-        if (hero) ...[
-          const SizedBox(height: 12),
-          Container(
-            key: const Key('opponent-pill'),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            decoration: BoxDecoration(
-              color: field.surfaceHigh,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              opponent == null || opponent.isEmpty
-                  ? 'PERSONAL GAME'
-                  : 'VS ${opponent.toUpperCase()}',
-              style: context.text.labelSmall?.copyWith(
-                color: field.on,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.4,
-                fontSize: 11,
-              ),
-            ),
-          ),
-        ],
       ],
     );
   }
@@ -294,7 +267,6 @@ class _DayLine extends StatelessWidget {
     required this.rbi,
     required this.runs,
     required this.size,
-    this.splitCounts = false,
   });
 
   final int hits;
@@ -304,16 +276,12 @@ class _DayLine extends StatelessWidget {
   final int? runs;
   final double size;
 
-  /// Put RBI and runs on their own line under the big line.
-  final bool splitCounts;
-
   @override
   Widget build(BuildContext context) {
     final field = context.colors.field;
     final counts = <String>[
-      if (splitCounts || rbi > 0) '$rbi RBI',
-      if (runs != null && (splitCounts || runs! > 0))
-        '$runs run${runs == 1 ? '' : 's'}',
+      if (rbi > 0) '$rbi RBI',
+      if (runs != null && runs! > 0) '$runs run${runs == 1 ? '' : 's'}',
     ];
     final muted = context.text.bodyMedium?.copyWith(
       color: field.muted,
@@ -335,22 +303,14 @@ class _DayLine extends StatelessWidget {
           ),
         ),
         for (final r in results) _Tag(label: r),
-        if (!splitCounts && counts.isNotEmpty) ...[
+        if (counts.isNotEmpty) ...[
           Text('  ·  ', style: muted),
           Text(counts.join('  ·  '), style: muted),
         ],
       ],
     );
 
-    if (!splitCounts) return FittedBox(fit: BoxFit.scaleDown, child: main);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        FittedBox(fit: BoxFit.scaleDown, child: main),
-        const SizedBox(height: 4),
-        Text(counts.join('  ·  '), style: muted),
-      ],
-    );
+    return FittedBox(fit: BoxFit.scaleDown, child: main);
   }
 }
 

@@ -17,11 +17,9 @@ import 'package:hacktracker/features/competitions/presentation/screens/competiti
 import 'package:hacktracker/features/scoring/presentation/screens/field_mode_screen.dart';
 import 'package:uuid/uuid.dart';
 import '../../helpers/test_fonts.dart';
-import '../../helpers/connectivity_mock.dart';
 
 void main() {
   setUpAll(() async {
-    mockConnectivity();
     await loadTestFonts();
   });
   for (final large in [false, true]) {
@@ -51,7 +49,7 @@ void main() {
           teamId: team.id,
           homeAway: 'away',
           competitionIds: ['season'],
-            startsAt: DateTime.utc(2026, 9, 8, 18),
+          startsAt: DateTime.utc(2026, 9, 8, 18),
         );
         await tracker.setLineup(
           teamId: team.id,
@@ -63,7 +61,10 @@ void main() {
           result: PaResult.double,
         );
         final container = ProviderContainer(
-          overrides: [databaseProvider.overrideWithValue(db), locationTrackingProvider.overrideWithValue(false)],
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            locationTrackingProvider.overrideWithValue(false),
+          ],
         );
         container.read(currentTeamIdProvider.notifier).state = team.id;
         tester.view.devicePixelRatio = 1;

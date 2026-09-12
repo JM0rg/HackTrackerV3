@@ -176,7 +176,10 @@ class _TeamHome extends ConsumerWidget {
             ],
           ),
         ),
-        if (live != null) ...[const SizedBox(height: 16), LiveCard(game: live)],
+        if (live != null) ...[
+          const SizedBox(height: 16),
+          LiveCard(game: live, teamName: team.name),
+        ],
         const SizedBox(height: 24),
         const ScorebookLabel('Manage team'),
         const SizedBox(height: 12),

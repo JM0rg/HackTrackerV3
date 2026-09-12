@@ -17,8 +17,9 @@ import 'package:hacktracker/features/scoring/presentation/widgets/field_sheets.d
 import 'package:hacktracker/features/scoring/presentation/widgets/field_style.dart';
 import 'package:hacktracker/features/scoring/presentation/widgets/final_card.dart';
 import 'package:hacktracker/features/scoring/presentation/widgets/last_play_line.dart';
+import 'package:hacktracker/features/scoring/presentation/widgets/scoreboard.dart';
 import 'package:hacktracker/features/scoring/presentation/widgets/one_card_diamond.dart';
-import 'package:hacktracker/features/scoring/presentation/widgets/score_hero.dart';
+import 'package:hacktracker/features/scoring/presentation/widgets/play_log.dart';
 import 'package:hacktracker/features/scoring/presentation/widgets/their_half_card.dart';
 import 'package:hacktracker/features/scoring/services/game_replay.dart';
 
@@ -93,11 +94,6 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
   bool _awaitingAnswer = false;
   bool _handoff = false;
 
-  /// Pull the score down and hold: past the threshold, letting go ends the
-  /// game. The wrap-up has Reopen, so this is not a one-way door.
-  double _pull = 0;
-  static const _endThreshold = 90.0;
-
   /// Close means "not right now": back to the tab, game stays live.
   void _leave() => context.go(state.personal ? '/' : '/team');
 
@@ -125,385 +121,272 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
   }
 
   static const _topRow = 48.0;
-  static const _hero = 164.0;
-  static const _card = 110.0;
-
-  /// A personal game with no score gives the card the hero's room.
-  static const _cardHero = 168.0;
-  static const _lastLine = 44.0;
-  static const _askRow = 40.0;
-  static const _nextUp = 44.0;
 
   @override
   Widget build(BuildContext context) {
-    final spacing = context.themeSpacing;
     final repo = ref.read(scoringRepositoryProvider);
     final theirs = state.tracksScore && !state.replay.weBat;
     final textScale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0);
     final premium = ref.watch(locationTrackingProvider);
     final contact = _contactMode(premium);
-    // Keep header and field geometry stable while a play is reviewed.
-    final compact = contact;
-    final heroHeight = state.tracksScore
-        ? (compact ? 100.0 : _hero) * textScale
-        : 0.0;
-    final cardHeight =
-        (compact
-            ? 76
-            : state.tracksScore
-            ? _card
-            : _cardHero) *
-        textScale;
     // Only a personal game keeping score ends its own half by hand.
     final byHand = state.personal && state.tracksScore && state.replay.weBat;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Reserve space for retry feedback; large text scrolls instead of
-        // compressing the scoring controls.
-        final contentHeight = math.max(
-          constraints.maxHeight,
-          (contact ? 820 : 828) * textScale,
-        );
-        final spare =
-            contentHeight -
-            _topRow -
-            heroHeight -
-            cardHeight -
-            _lastLine -
-            _askRow -
-            _nextUp -
-            spacing.md * 2 -
-            64 - // Retry row and the field panel's insets.
-            (state.hasLineup ? 0 : 48);
-        final byHeight = (spare - 180) * 280 / 240;
-        final byWidth = constraints.maxWidth - 34;
-        final width = math.min(byHeight, byWidth).clamp(190.0, 280.0);
-        final geometry = FieldGeometry(width);
-
-        return SingleChildScrollView(
-          child: SizedBox(
-            height: contentHeight,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  height: _topRow,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        key: const Key('field-close'),
-                        onPressed: _leave,
-                        icon: const Icon(
-                          Icons.arrow_back_ios_new_rounded,
-                          size: 19,
-                        ),
-                        color: context.colors.field.muted,
-                        tooltip: 'Back to the tab, game stays live',
-                      ),
-                      if (!state.personal && !state.isFinal)
-                        TextButton.icon(
-                          key: const Key('field-handoff'),
-                          onPressed: _awaitingAnswer
-                              ? null
-                              : () => setState(() => _handoff = !_handoff),
-                          icon: Icon(
-                            _handoff ? Icons.check : Icons.swap_horiz,
-                            size: 20,
-                          ),
-                          label: Text(_handoff ? 'Done' : 'Handoff'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: context.colors.field.on,
-                          ),
-                        ),
-                      if (!_handoff)
-                        IconButton(
-                          onPressed: () => _openMenu(context, ref),
-                          icon: const Icon(Icons.more_horiz),
-                          color: context.colors.field.muted,
-                          tooltip: 'Game menu',
-                        ),
-                    ],
-                  ),
-                ),
-                if (!state.isFinal && state.tracksScore)
-                  GestureDetector(
-                    key: const Key('hero-pull'),
-                    behavior: HitTestBehavior.translucent,
-                    onVerticalDragUpdate: (d) => setState(
-                      () => _pull = (_pull + d.delta.dy).clamp(0.0, 160.0),
-                    ),
-                    onVerticalDragEnd: (_) => _releasePull(repo),
-                    onVerticalDragCancel: () => setState(() => _pull = 0),
-                    child: SizedBox(
-                      height: heroHeight,
-                      child: Stack(
-                        alignment: Alignment.topCenter,
-                        children: [
-                          AnimatedContainer(
-                            duration: _pull == 0
-                                ? const Duration(milliseconds: 180)
-                                : Duration.zero,
-                            transform: Matrix4.translationValues(
-                              0,
-                              _pull * 0.35,
-                              0,
-                            ),
-                            child: Center(
-                              child: ScoreHero(
-                                compact: compact,
-                                state: state,
-                                onTap: _handoff
-                                    ? null
-                                    : () =>
-                                          showLogSheet(context, gameId: gameId),
-                                onRun: byHand && !_awaitingAnswer
-                                    ? (delta) => repo.bumpOurHalfRuns(
-                                        game: state.game,
-                                        delta: delta,
-                                      )
-                                    : null,
-                                onEndHalf: byHand && !_awaitingAnswer
-                                    ? () => repo.endOurHalf(state.game)
-                                    : null,
-                              ),
-                            ),
-                          ),
-                          if (_pull > 12)
-                            Positioned(
-                              top: 2,
-                              child: AnimatedOpacity(
-                                duration: const Duration(milliseconds: 120),
-                                opacity: (_pull / _endThreshold).clamp(
-                                  0.0,
-                                  1.0,
-                                ),
-                                child: Text(
-                                  _pull >= _endThreshold
-                                      ? 'Release to end the game'
-                                      : 'Pull to end the game',
-                                  key: const Key('pull-hint'),
-                                  style: context.text.labelSmall?.copyWith(
-                                    color: _pull >= _endThreshold
-                                        ? context.colors.field.accent
-                                        : context.colors.field.muted,
-                                    letterSpacing: 1.2,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                if (state.isFinal)
-                  Expanded(
-                    child: FinalCard(
-                      state: state,
-                      onReopen: () => repo.reopenGame(state.game),
-                      onBoxScore: () => context.push('/games/$gameId/box'),
-                    ),
-                  )
-                else if (theirs)
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        spacing.sm,
-                        0,
-                        spacing.sm,
-                        spacing.sm,
-                      ),
-                      child: TheirHalfCard(
-                        state: state,
-                        onRun: (delta) => repo.bumpTheirHalfRuns(
-                          game: state.game,
-                          delta: delta,
-                        ),
-                        onEnd: () => repo.endTheirHalf(state.game),
-                      ),
-                    ),
-                  )
-                else ...[
-                  if (compact)
-                    SizedBox(
-                      height: cardHeight,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 22,
-                          vertical: 12,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                state.personal
-                                    ? 'Your at-bat'
-                                    : state.batter?.firstName ?? 'No lineup',
-                                style: context.text.titleLarge?.copyWith(
-                                  color: context.colors.field.on,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              state.batter == null
-                                  ? ''
-                                  : '${state.lineFor(state.batter!.id).hits} for ${state.lineFor(state.batter!.id).atBats}',
-                              style: context.text.titleMedium?.copyWith(
-                                color: context.colors.field.accent,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    BatterCard(
-                      state: state,
-                      height: cardHeight,
-                      onUndo: state.hasLog && !_awaitingAnswer
-                          ? () => repo.undoLast(state.game)
-                          : null,
-                      onNext:
-                          state.hasLineup && !state.personal && !_awaitingAnswer
-                          ? () => _jump(repo, 1)
-                          : null,
-                      onPrevious:
-                          state.hasLineup && !state.personal && !_awaitingAnswer
-                          ? () => _jump(repo, -1)
-                          : null,
-                    ),
-                  // Keep the last play beside the field so undo stays within reach.
-                  const SizedBox(height: 12),
-                  AnimatedOpacity(
-                    duration: const Duration(milliseconds: 150),
-                    opacity: _awaitingAnswer ? 0.35 : 1,
-                    child: LastPlayLine(
-                      state: state,
-                      onUndo: state.hasLog && !_awaitingAnswer
-                          ? () => repo.undoLast(state.game)
-                          : null,
-                      onFix: _awaitingAnswer || _handoff
-                          ? null
-                          : (pa) => showFixSheet(
-                              context,
-                              gameId: gameId,
-                              paId: pa.paId,
-                            ),
-                    ),
-                  ),
-                  SizedBox(height: spacing.xs),
-                  Expanded(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: context.colors.field.surface.withValues(
-                          alpha: .55,
-                        ),
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: context.colors.field.border.withValues(
-                            alpha: .6,
-                          ),
-                        ),
-                      ),
-                      child: contact
-                          ? SingleChildScrollView(
-                              child: ContactScorer(
-                                captureEnabled: premium,
-                                key: ValueKey('contact-$gameId'),
-                                state: state,
-                                onWave: (id) => _wave(repo, id),
-                                onCommit: (play) => _record(repo, play),
-                                onDraftChanged: (draft) =>
-                                    repo.saveDraft(gameId, draft),
-                                onPendingChanged: (pending) {
-                                  if (mounted) {
-                                    setState(() => _awaitingAnswer = pending);
-                                  }
-                                },
-                              ),
-                            )
-                          : LayoutBuilder(
-                              builder: (context, constraints) =>
-                                  SingleChildScrollView(
-                                    child: ConstrainedBox(
-                                      constraints: BoxConstraints(
-                                        minHeight: constraints.maxHeight,
-                                      ),
-                                      child: Center(
-                                        child: OneCardDiamond(
-                                          trackLocation: premium,
-                                          reviewHeight: constraints.maxHeight,
-                                          state: state,
-                                          geometry: geometry,
-                                          enabled: state.hasLineup,
-                                          showHint: state.replay.pas.length < 3,
-                                          onCommit: (play) =>
-                                              _record(repo, play),
-                                          onDraftChanged: (draft) =>
-                                              repo.saveDraft(gameId, draft),
-                                          onWave: (playerId) =>
-                                              _wave(repo, playerId),
-                                          onPendingChanged: (pending) {
-                                            if (mounted) {
-                                              setState(
-                                                () => _awaitingAnswer = pending,
-                                              );
-                                            }
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                            ),
-                    ),
-                  ),
-                  if (!state.hasLineup)
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: spacing.md),
-                      child: FilledButton(
-                        onPressed: () => context.push('/games/$gameId/lineup'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: context.colors.field.surfaceHigh,
-                          foregroundColor: context.colors.field.on,
-                          minimumSize: const Size.fromHeight(44),
-                        ),
-                        child: const Text('Pick a batting order to start'),
-                      ),
-                    ),
-                  SizedBox(
-                    height: _nextUp,
-                    child: _handoff
-                        ? Text(
-                            'Drag the hitter where they reached. Undo fixes the last play.',
-                            textAlign: TextAlign.center,
-                            style: context.text.labelSmall?.copyWith(
-                              color: context.colors.field.muted,
-                            ),
-                          )
-                        : _NextUp(state: state),
-                  ),
-                  SizedBox(height: spacing.sm),
-                ],
-              ],
+    if (state.isFinal) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(height: _topRow, child: _sky(context)),
+          Expanded(
+            child: FinalCard(
+              state: state,
+              onReopen: () => repo.reopenGame(state.game),
+              onBoxScore: () => context.push('/games/$gameId/box'),
             ),
           ),
-        );
-      },
+        ],
+      );
+    }
+
+    // Readings at the top, where the eyes are; the instrument at the bottom,
+    // where the thumb is. Score and dugout are read, so they stack under the
+    // sky. The field is dragged on every play, so it sits as low as the
+    // question bar allows. Nothing is in a box except the thing that is
+    // tapped.
+    final Widget? surface;
+    if (theirs) {
+      surface = Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        child: TheirHalfCard(
+          state: state,
+          onRun: (delta) =>
+              repo.bumpTheirHalfRuns(game: state.game, delta: delta),
+          onEnd: () => repo.endTheirHalf(state.game),
+        ),
+      );
+    } else if (contact) {
+      surface = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              child: ContactScorer(
+                captureEnabled: premium,
+                key: ValueKey('contact-$gameId'),
+                state: state,
+                onWave: (id) => _wave(repo, id),
+                onCommit: (play) => _record(repo, play),
+                onDraftChanged: (draft) => repo.saveDraft(gameId, draft),
+                onPendingChanged: (pending) {
+                  if (mounted) setState(() => _awaitingAnswer = pending);
+                },
+              ),
+            ),
+          ),
+        ],
+      );
+    } else {
+      surface = null;
+    }
+
+    return LayoutBuilder(
+      builder: (context, page) => Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(height: _topRow, child: _sky(context)),
+              SizedBox(
+                height: MediaQuery.textScalerOf(
+                  context,
+                ).scale(Scoreboard.height),
+                child: Scoreboard(
+                  state: state,
+                  enabled: !_awaitingAnswer && !_handoff,
+                  onTap: _handoff
+                      ? null
+                      : () => showLogSheet(context, gameId: gameId),
+                  onEndGame: () => repo.finalizeGame(state.game),
+                  onRun: byHand && !_awaitingAnswer
+                      ? (delta) =>
+                            repo.bumpOurHalfRuns(game: state.game, delta: delta)
+                      : null,
+                  onEndHalf: byHand && !_awaitingAnswer
+                      ? () => repo.endOurHalf(state.game)
+                      : null,
+                ),
+              ),
+              if (surface != null) ...[
+                if (!theirs)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 6, 18, 0),
+                    child: _dugout(repo),
+                  ),
+                Expanded(child: surface),
+              ] else ...[
+                if (!state.personal || state.tracksScore)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 6, 18, 0),
+                    child: _batterLine(repo),
+                  ),
+                // The game so far fills the room between the readings and the
+                // wall, however much of it this phone has.
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 8, 18, 4),
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 150),
+                      opacity: _awaitingAnswer ? 0.35 : 1,
+                      child: PlayLog(
+                        state: state,
+                        onUndo: state.hasLog && !_awaitingAnswer
+                            ? () => repo.undoLast(state.game)
+                            : null,
+                        onFix: _awaitingAnswer || _handoff
+                            ? null
+                            : (pa) => showFixSheet(
+                                context,
+                                gameId: gameId,
+                                paId: pa.paId,
+                              ),
+                        onViewAll: () => showLogSheet(context, gameId: gameId),
+                      ),
+                    ),
+                  ),
+                ),
+                _instrument(context, repo, page, textScale, premium),
+              ],
+            ],
+          ),
+          if (!state.hasLineup && !theirs)
+            Positioned(
+              left: 24,
+              right: 24,
+              bottom: 24,
+              child: FilledButton(
+                onPressed: () => context.push('/games/$gameId/lineup'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: context.colors.field.surfaceHigh,
+                  foregroundColor: context.colors.field.on,
+                  minimumSize: const Size.fromHeight(44),
+                ),
+                child: const Text('Pick a batting order to start'),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
-  Future<void> _releasePull(ScoringRepository repo) async {
-    final end = _pull >= _endThreshold;
-    setState(() => _pull = 0);
-    if (!end || _awaitingAnswer || _handoff) return;
-    await repo.finalizeGame(state.game);
+  /// The field and its question bar, sized once from the page so the plate
+  /// sits as low as the bar allows. Width is the usual limit; on a short
+  /// phone the height wins, leaving the log at least a row.
+  Widget _instrument(
+    BuildContext context,
+    ScoringRepository repo,
+    BoxConstraints page,
+    double textScale,
+    bool premium,
+  ) {
+    final ts = textScale;
+    final byWidth = (page.maxWidth - 16) * (300 / 283);
+    final above =
+        _topRow +
+        Scoreboard.height * ts +
+        ((!state.personal || state.tracksScore) ? 62 : 0) +
+        PlayLog.rowHeight * ts +
+        12;
+    final barRoom = 12 + OneCardDiamond.barSpace * ts;
+    final byHeight = 300 * (page.maxHeight - above - barRoom) / 296;
+    final geometry = FieldGeometry(
+      math.min(byWidth, byHeight).clamp(180.0, 620.0),
+    );
+    return SizedBox(
+      height: geometry.height + barRoom,
+      child: OneCardDiamond(
+        trackLocation: premium,
+        state: state,
+        geometry: geometry,
+        enabled: state.hasLineup,
+        showHint: state.replay.pas.length < 3,
+        onCommit: (play) => _record(repo, play),
+        onDraftChanged: (draft) => repo.saveDraft(gameId, draft),
+        onWave: (playerId) => _wave(repo, playerId),
+        onPendingChanged: (pending) {
+          if (mounted) setState(() => _awaitingAnswer = pending);
+        },
+      ),
+    );
   }
 
+  /// Back, and the menu. While the phone is handed off, the menu is gone and
+  /// Done brings it back.
+  Widget _sky(BuildContext context) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      IconButton(
+        key: const Key('field-close'),
+        onPressed: _leave,
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 19),
+        color: context.colors.field.muted,
+        tooltip: 'Back to the tab, game stays live',
+      ),
+      if (_handoff)
+        TextButton.icon(
+          key: const Key('field-handoff'),
+          onPressed: _awaitingAnswer
+              ? null
+              : () => setState(() => _handoff = false),
+          icon: const Icon(Icons.check, size: 20),
+          label: const Text('Done'),
+          style: TextButton.styleFrom(foregroundColor: context.colors.field.on),
+        )
+      else if (!state.isFinal)
+        IconButton(
+          onPressed: () => _openMenu(context, ref),
+          icon: const Icon(Icons.more_horiz),
+          color: context.colors.field.muted,
+          tooltip: 'Game menu',
+        ),
+    ],
+  );
+
+  /// Who is up: swipe down to undo, sideways through the order.
+  Widget _batterLine(ScoringRepository repo) => BatterCard(
+    state: state,
+    onUndo: state.hasLog && !_awaitingAnswer
+        ? () => repo.undoLast(state.game)
+        : null,
+    onNext: state.hasLineup && !state.personal && !_awaitingAnswer
+        ? () => _jump(repo, 1)
+        : null,
+    onPrevious: state.hasLineup && !state.personal && !_awaitingAnswer
+        ? () => _jump(repo, -1)
+        : null,
+  );
+
+  /// Who is up, then what just happened. A personal game keeping only its
+  /// own at-bats has its day on the scoreboard, so only the receipt.
+  Widget _dugout(ScoringRepository repo) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      if (!state.personal || state.tracksScore) _batterLine(repo),
+      AnimatedOpacity(
+        duration: const Duration(milliseconds: 150),
+        opacity: _awaitingAnswer ? 0.35 : 1,
+        child: LastPlayLine(
+          state: state,
+          onUndo: state.hasLog && !_awaitingAnswer
+              ? () => repo.undoLast(state.game)
+              : null,
+          onFix: _awaitingAnswer || _handoff
+              ? null
+              : (pa) => showFixSheet(context, gameId: gameId, paId: pa.paId),
+        ),
+      ),
+    ],
+  );
   Future<void> _record(ScoringRepository repo, LoggedPlay play) {
     return repo.recordPa(
       game: state.game,
@@ -552,6 +435,17 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
         await ref
             .read(scoringRepositoryProvider)
             .setGameScope(game: state.game, scope: next);
+      case GameMenuAction.handoff:
+        setState(() => _handoff = true);
+      case GameMenuAction.discard:
+        // Already asked, in the menu. There is no game to come back to, so
+        // leave rather than sit on a screen that has nothing to show. The
+        // router is taken first: the delete swaps this screen out, and a
+        // `mounted` check after it could strand the scorer on a dead game.
+        final router = GoRouter.of(context);
+        final home = state.personal ? '/' : '/team';
+        await ref.read(scoringRepositoryProvider).discardGame(state.game);
+        router.go(home);
       case GameMenuAction.endGame:
         final ok = await confirmAction(
           context,
@@ -561,41 +455,6 @@ class _FieldBodyState extends ConsumerState<_FieldBody> {
         if (!ok) return;
         await ref.read(scoringRepositoryProvider).finalizeGame(state.game);
     }
-  }
-}
-
-class _NextUp extends StatelessWidget {
-  const _NextUp({required this.state});
-
-  final FieldModeState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final field = context.colors.field;
-    final next = state.onDeck;
-    if (state.personal || next == null) return const SizedBox.shrink();
-    return Center(
-      child: Text.rich(
-        TextSpan(
-          children: [
-            TextSpan(
-              text: 'NEXT  ',
-              style: context.text.labelSmall?.copyWith(
-                color: field.muted,
-                letterSpacing: 1.8,
-              ),
-            ),
-            TextSpan(
-              text: next.firstName,
-              style: context.text.labelSmall?.copyWith(
-                color: field.on,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

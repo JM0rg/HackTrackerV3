@@ -214,13 +214,23 @@ class AppTheme {
   static ThemeData dark({String? fontFamily}) =>
       _base(Brightness.dark, AppPalette.dark, fontFamily);
 
-  static ThemeData _base(Brightness brightness, AppPalette p, String? fontFamily) {
+  static ThemeData _base(
+    Brightness brightness,
+    AppPalette p,
+    String? fontFamily,
+  ) {
     final colors = AppColors.fromPalette(p);
-    final textTheme = AppTypography.textTheme(p.text, p.muted)
-        .apply(fontFamily: fontFamily ?? AppTypography.family);
+    final textTheme = AppTypography.textTheme(
+      p.text,
+      p.muted,
+    ).apply(fontFamily: fontFamily ?? AppTypography.family);
     final overlay = brightness == Brightness.dark
-        ? SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent)
-        : SystemUiOverlayStyle.dark.copyWith(statusBarColor: Colors.transparent);
+        ? SystemUiOverlayStyle.light.copyWith(
+            statusBarColor: Colors.transparent,
+          )
+        : SystemUiOverlayStyle.dark.copyWith(
+            statusBarColor: Colors.transparent,
+          );
 
     final scheme = ColorScheme(
       brightness: brightness,
@@ -351,7 +361,9 @@ class AppTheme {
         backgroundColor: p.surface,
         titleTextStyle: textTheme.titleMedium,
         contentTextStyle: textTheme.bodyMedium,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.defaults.xl)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.defaults.xl),
+        ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: p.surface,

@@ -20,6 +20,14 @@ class FieldPalette {
     required this.line,
     required this.lineStrong,
     required this.glow,
+    required this.spray,
+    required this.turf,
+    required this.track,
+    required this.dirt,
+    required this.chalk,
+    required this.bag,
+    required this.fence,
+    required this.textured,
   });
 
   final Color bg;
@@ -48,6 +56,24 @@ class FieldPalette {
   /// Top of the scoreboard's vignette.
   final Color glow;
 
+  /// The batted ball's path from the plate. Red, so it never reads as a base
+  /// path or an out.
+  final Color spray;
+
+  /// The playing surface, as materials rather than tints of the accent: grass,
+  /// the warning track inside the fence, the skinned infield, the chalk on top
+  /// of them, the bags and the wall.
+  final Color turf;
+  final Color track;
+  final Color dirt;
+  final Color chalk;
+  final Color bag;
+  final Color fence;
+
+  /// Whether the field carries a mow pattern and mottled turf. Off outdoors,
+  /// where texture is the first thing to die in sunlight.
+  final bool textured;
+
   /// Brighter labels and basepaths against a solid black field.
   static const outdoor = FieldPalette(
     bg: Color(0xFF000000),
@@ -65,6 +91,14 @@ class FieldPalette {
     line: Color(0xFF8C8C8C),
     lineStrong: Color(0xFFBFBFBF),
     glow: Color(0xFF000000),
+    spray: Color(0xFFFF5C4D),
+    turf: Color(0xFF0E2A17),
+    track: Color(0xFF3A2A1C),
+    dirt: Color(0xFF6B4A2E),
+    chalk: Color(0xFFFFFFFF),
+    bag: Color(0xFFFFFFFF),
+    fence: Color(0xFFBFBFBF),
+    textured: false,
   );
 
   static const scoreboard = FieldPalette(
@@ -83,6 +117,14 @@ class FieldPalette {
     line: Color(0xFF22282E),
     lineStrong: Color(0xFF2A3036),
     glow: Color(0xFF123D26),
+    spray: Color(0xFFFF4D4D),
+    turf: Color(0xFF16331F),
+    track: Color(0xFF3E2E20),
+    dirt: Color(0xFF5C4029),
+    chalk: Color(0xFFE8EDF0),
+    bag: Color(0xFFEDF1F3),
+    fence: Color(0xFF5A656F),
+    textured: true,
   );
 }
 
